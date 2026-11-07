@@ -1,0 +1,2435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Flip 7 Calculator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html.she-old {
+      font-size: 120%;
+    }
+    html.even-older {
+      font-size: 145%;
+    }
+    html.old-cunt {
+      font-size: 175%;
+    }
+
+    /* Fast touch response across interactive elements */
+    button, select, input, label, a {
+      touch-action: manipulation;
+    }
+
+    /* Dynamic safe clearance padding for mobile gesture navigation bars */
+    .safe-pb {
+      padding-bottom: max(7.5rem, calc(6.5rem + env(safe-area-inset-bottom, 0px)));
+    }
+
+    /* Fullscreen Screen Flash Keyframes for Victory */
+    @keyframes amazeStrobe {
+      0% { opacity: 0; background-color: transparent; }
+      10% { opacity: 0.85; background-color: rgba(245, 158, 11, 0.7); }
+      20% { opacity: 0.15; background-color: transparent; }
+      30% { opacity: 0.9; background-color: rgba(239, 68, 68, 0.75); }
+      40% { opacity: 0.1; background-color: transparent; }
+      50% { opacity: 0.95; background-color: rgba(236, 72, 153, 0.8); }
+      60% { opacity: 0.2; background-color: transparent; }
+      70% { opacity: 0.9; background-color: rgba(168, 85, 247, 0.75); }
+      80% { opacity: 0.2; background-color: transparent; }
+      90% { opacity: 0.85; background-color: rgba(245, 158, 11, 0.6); }
+      100% { opacity: 0; background-color: transparent; }
+    }
+
+    .amaze-flashing {
+      animation: amazeStrobe 3s ease-in-out forwards;
+    }
+
+    @keyframes bouncePulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .amaze-banner-anim {
+      animation: bouncePulse 0.9s infinite ease-in-out;
+    }
+
+    /* Guide step highlighter pulse */
+    @keyframes targetGlow {
+      0%, 100% {
+        box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4), 0 0 16px rgba(245, 158, 11, 0.25);
+        border-color: rgba(245, 158, 11, 0.9);
+      }
+      50% {
+        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.8), 0 0 28px rgba(245, 158, 11, 0.6);
+        border-color: rgba(251, 191, 36, 1);
+      }
+    }
+
+    .guide-highlight {
+      animation: targetGlow 1.8s infinite ease-in-out;
+      position: relative;
+    }
+
+    /* Custom Scrollbar Styles */
+    ::-webkit-scrollbar {
+      height: 6px;
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-3 md:p-6 safe-pb font-sans relative overflow-x-hidden selection:bg-amber-500 selection:text-slate-950">
+
+  <!-- Fullscreen Flashing Overlay for Amaze Victory -->
+  <div id="amazeFlashOverlay" class="fixed inset-0 pointer-events-none z-50 hidden"></div>
+
+  <!-- Centered Other Player Score Notification Pop-up with Prominent Dismiss Button -->
+  <div id="otherPlayerScorePopup" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 hidden transition-all duration-300 transform scale-95 opacity-0 pointer-events-auto">
+    <div class="bg-slate-900/95 text-amber-300 border-2 border-amber-400 p-5 md:p-6 rounded-2xl shadow-2xl flex items-center gap-5 min-w-[280px] max-w-sm">
+      <div class="flex-1 text-sm md:text-base font-extrabold tracking-wide text-left" id="otherPlayerScorePopupText">
+        You added 0 points to Player
+      </div>
+      <button onclick="dismissOtherPlayerScorePopup()" class="text-slate-400 hover:text-white font-black text-2xl md:text-3xl leading-none px-2 py-1 transition active:scale-95" title="Dismiss">&times;</button>
+    </div>
+  </div>
+
+  <!-- Player Identity Selection Modal -->
+  <div id="playerIdentityModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm hidden p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-fade-in text-left">
+      <div class="flex items-center justify-between pb-1 border-b border-slate-700/60">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <span>👋 Who is playing on this device?</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">Your scores will default to your selected player.</p>
+        </div>
+        <button id="identityModalCloseBtn" onclick="closeIdentityModal()" class="text-slate-400 hover:text-white text-lg p-1 transition hidden" title="Close">&times;</button>
+      </div>
+
+      <!-- Option A: Select Existing Player -->
+      <div id="existingPlayersContainer" class="space-y-2 hidden">
+        <label class="text-xs font-semibold uppercase tracking-wider text-amber-400">Select Existing Player:</label>
+        <div id="existingPlayersList" class="grid grid-cols-2 gap-2 max-h-44 overflow-y-auto pr-1">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div id="identityDivider" class="relative flex py-1 items-center hidden">
+        <div class="flex-grow border-t border-slate-700"></div>
+        <span class="flex-shrink mx-3 text-[11px] uppercase tracking-wider font-bold text-slate-500">or add new</span>
+        <div class="flex-grow border-t border-slate-700"></div>
+      </div>
+
+      <!-- Option B: Add New Player -->
+      <div id="addNewPlayerContainer" class="space-y-2">
+        <label id="addNewPlayerLabel" class="text-xs font-semibold uppercase tracking-wider text-slate-300">New Player Name:</label>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input type="text" id="identityNameInput" placeholder="Name..." maxlength="20" onkeydown="if(event.key==='Enter') submitNewIdentity()" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-400 font-medium">
+          <button onclick="submitNewIdentity()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs transition shadow-sm whitespace-nowrap active:scale-95 shrink-0">
+            Join Match
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Round History & Recovery Modal -->
+  <div id="roundHistoryModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm hidden p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-5 md:p-6 space-y-4 shadow-2xl animate-fade-in text-left">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-700/60">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <span>📜 Round History &amp; Edit</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">Player: <span id="historyPlayerName" class="font-bold text-amber-400"></span></p>
+        </div>
+        <button onclick="closeRoundHistoryModal()" class="text-slate-400 hover:text-white text-xl p-1 transition" title="Close">&times;</button>
+      </div>
+
+      <div class="text-xs text-slate-300 flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">
+        <span>Current Total: <span id="historyTotalScore" class="font-mono font-bold text-amber-300 text-sm">0</span> pts</span>
+        <span class="text-slate-400 text-[11px]">Click ✕ to delete any mistaken round</span>
+      </div>
+
+      <!-- Scrollable Rounds List -->
+      <div id="historyRoundsList" class="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Add / Recover Missed Round Form -->
+      <div class="pt-2 border-t border-slate-700/60 space-y-2">
+        <label class="text-xs font-semibold text-slate-300">Recover Missing / Corrected Round:</label>
+        <div class="flex items-center gap-2">
+          <input type="number" id="historyAddRoundInput" placeholder="Points to add (e.g. 24)" onkeydown="if(event.key==='Enter') submitRecoveredRound()" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-amber-400 font-mono">
+          <button onclick="submitRecoveredRound()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition active:scale-95 whitespace-nowrap shadow-sm">
+            + Add Round
+          </button>
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button onclick="closeRoundHistoryModal()" class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-lg transition active:scale-95">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Whistler GIF Overlay -->
+  <div id="whistlerGifOverlay" class="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center hidden p-2 sm:p-4 cursor-pointer select-none" onclick="dismissWhistlerGif()">
+    <div class="relative w-full h-full max-h-[92vh] max-w-[96vw] flex items-center justify-center">
+      <img id="whistlerGifImg" src="https://i.gifer.com/pg.gif" onerror="this.onerror=null; this.src='https://i.gifer.com/pg.gif';" alt="Whistler Rules" class="w-full h-full object-contain rounded-2xl shadow-2xl pointer-events-none">
+      <div class="absolute top-3 right-3 flex items-center gap-2 pointer-events-auto">
+        <span class="bg-black/70 text-pink-300 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-pink-500/30 shadow-md">
+          Auto-closing...
+        </span>
+        <button onclick="dismissWhistlerGif()" class="bg-black/80 hover:bg-black text-white px-3 py-1 rounded-full text-xs font-bold border border-white/30 transition shadow-lg">
+          ✕ Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Celebratory Banner Overlay -->
+  <div id="amazeBannerOverlay" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm hidden p-4">
+    <div class="bg-slate-800 border-2 border-amber-400 p-6 md:p-8 rounded-2xl max-w-md w-full text-center space-y-4 shadow-2xl shadow-amber-500/30 amaze-banner-anim">
+      <div class="text-4xl">👑 ⚡ 🏆</div>
+      <h2 id="amazeWinnerHeading" class="text-2xl md:text-3xl font-black text-amber-400 tracking-wide uppercase"></h2>
+      <p class="text-xl md:text-2xl font-black text-pink-400 tracking-widest uppercase">Amaze, Amaze, Amaze!</p>
+      <p class="text-xs text-slate-300">Victory achieved! All hail the new champion.</p>
+      <button onclick="dismissAmazeBanner()" class="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-sm transition tracking-wider uppercase shadow-lg shadow-amber-500/20 active:scale-98">
+        Continue Game
+      </button>
+    </div>
+  </div>
+
+  <!-- In-App Interactive Modal -->
+  <div id="customModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-fade-in">
+      <h3 id="modalTitle" class="text-base font-bold text-white"></h3>
+      <p id="modalMessage" class="text-xs text-slate-300 leading-relaxed"></p>
+      <div id="modalInputContainer" class="hidden">
+        <input type="text" id="modalInput" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-400 font-medium">
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button id="modalCancelBtn" onclick="closeModal(false)" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs font-bold rounded-lg text-slate-300 transition">Cancel</button>
+        <button id="modalConfirmBtn" onclick="closeModal(true)" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-xs font-bold text-slate-950 rounded-lg transition shadow-sm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visual Walkthrough Guide Modal -->
+  <div id="appOverviewModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md hidden p-3 md:p-6">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full p-5 md:p-6 shadow-2xl animate-fade-in text-left h-[520px] max-h-[92vh] flex flex-col justify-between">
+      <div class="flex items-center justify-between pb-2.5 border-b border-slate-700 shrink-0">
+        <div class="flex items-center gap-1.5" id="guideStepDots"></div>
+        <button onclick="closeAppOverviewModal()" class="text-slate-400 hover:text-white text-xl p-1 transition" title="Close Guide">&times;</button>
+      </div>
+
+      <div class="space-y-3 overflow-y-auto pr-1 flex-1 py-2 text-xs text-slate-300 leading-relaxed">
+        <div class="space-y-1">
+          <h4 id="guideTitle" class="text-sm font-bold text-amber-400"></h4>
+          <p id="guideDescription" class="text-slate-200 text-xs leading-relaxed"></p>
+        </div>
+        <div class="space-y-1">
+          <div id="guideScreenshotFrame" class="bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 md:p-4 shadow-inner overflow-hidden"></div>
+        </div>
+        <div id="guideBulletPoints" class="bg-slate-900/50 border border-slate-700/60 rounded-xl p-3 space-y-2 text-xs hidden"></div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-700 flex items-center justify-between gap-3 shrink-0">
+        <button id="guidePrevBtn" onclick="prevGuideStep()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none text-slate-200 font-bold rounded-xl text-xs transition active:scale-95 flex items-center gap-1">
+          <span>←</span> Previous
+        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="closeAppOverviewModal()" class="px-3 py-2 text-slate-400 hover:text-white font-medium text-xs transition">
+            Skip Tour
+          </button>
+          <button id="guideNextBtn" onclick="nextGuideStep()" class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition shadow-md active:scale-95 flex items-center gap-1">
+            <span>Next</span> <span>→</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Bar (Top-centered) -->
+  <div id="toastContainer" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 max-w-sm w-full pointer-events-none px-4"></div>
+
+  <!-- Main Container -->
+  <div class="max-w-5xl mx-auto space-y-5">
+    
+    <!-- Header -->
+    <header class="text-center space-y-1">
+      <div id="whistlerBadgeContainer" class="min-h-[24px]">
+        <button id="whistlerBadge" onclick="showWhistlerGif()" title="Click to view Whistler GIF" class="hidden inline-flex items-center px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-400 hover:bg-pink-500/30 border border-pink-500/30 text-xs font-bold tracking-wide uppercase transition shadow-sm">
+          Whistler Active 🎬
+        </button>
+      </div>
+      <h1 class="text-3xl md:text-4xl font-extrabold tracking-wider" id="headerTitle">
+        <span class="text-amber-400">FLIP 7</span> <span class="text-slate-100">CALCULATOR</span>
+      </h1>
+    </header>
+
+    <!-- Top Settings & Status Bar -->
+    <div class="bg-slate-800 rounded-xl p-4 border border-slate-700 shadow-md flex flex-wrap items-center justify-between gap-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs font-semibold uppercase text-slate-400">Room:</span>
+          <span id="roomDisplay" class="text-base font-mono font-bold text-amber-300">Loading...</span>
+          <button onclick="copyShareLink()" title="Copy room invite link" class="p-1 rounded-md bg-slate-700/80 hover:bg-amber-500 text-slate-300 hover:text-slate-950 transition active:scale-95 flex items-center justify-center">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+          </button>
+        </div>
+
+        <!-- Mode Toggle -->
+        <div class="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700 text-xs">
+          <button id="btnStandard" onclick="setGameMode('standard')" class="px-2.5 py-1 rounded font-bold bg-amber-500 text-slate-900 transition">Standard</button>
+          <button id="btnVengeance" onclick="setGameMode('vengeance')" class="px-2.5 py-1 rounded font-bold text-slate-400 hover:text-white transition">Vengeance</button>
+        </div>
+
+        <!-- Device Player Identity Indicator -->
+        <div id="myIdentityBadgeContainer" class="flex items-center gap-1.5 bg-slate-900 border border-slate-700 px-2.5 py-1 rounded-lg text-xs">
+          <span class="text-slate-400">You:</span>
+          <span id="myIdentityName" class="font-bold text-amber-300 font-sans">Guest</span>
+          <button onclick="openIdentityModal(true)" class="ml-1 text-[11px] text-sky-400 hover:text-sky-300 underline font-medium" title="Switch player">
+            Switch
+          </button>
+        </div>
+
+        <!-- Whistler Rules Toggle Switch -->
+        <label class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700 hover:border-pink-500/60 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition select-none group">
+          <input type="checkbox" id="whistlerRulesToggle" onchange="toggleWhistlerRules(this.checked)" class="accent-pink-500 w-3.5 h-3.5 rounded cursor-pointer">
+          <span class="font-bold text-slate-300 group-hover:text-pink-300 transition">Whistler Rules</span>
+        </label>
+
+        <!-- Accessibility Toggles -->
+        <label class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700 hover:border-sky-400/60 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition select-none group">
+          <input type="checkbox" id="sheOldToggle" onchange="toggleSheOld(this.checked)" class="accent-sky-400 w-3.5 h-3.5 rounded cursor-pointer">
+          <span class="font-bold text-slate-300 group-hover:text-sky-300 transition">She Old 👓</span>
+        </label>
+
+        <label id="evenOlderContainer" class="hidden items-center gap-1.5 bg-slate-900/90 border border-slate-700 hover:border-amber-400/60 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition select-none group">
+          <input type="checkbox" id="evenOlderToggle" onchange="toggleEvenOlder(this.checked)" class="accent-amber-400 w-3.5 h-3.5 rounded cursor-pointer">
+          <span class="font-bold text-slate-300 group-hover:text-amber-300 transition">Even Older 🔍</span>
+        </label>
+
+        <label id="oldCuntContainer" class="hidden items-center gap-1.5 bg-slate-900/90 border border-slate-700 hover:border-purple-400/60 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition select-none group">
+          <input type="checkbox" id="oldCuntToggle" onchange="toggleOldCunt(this.checked)" class="accent-purple-400 w-3.5 h-3.5 rounded cursor-pointer">
+          <span class="font-bold text-slate-300 group-hover:text-purple-300 transition">Old Cunt (OC) 👵</span>
+        </label>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="openAppOverviewModal()" title="View Rules & App Guide" class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600/80 hover:bg-indigo-600 text-white font-bold rounded-lg text-xs transition active:scale-95">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 16h-2v-2h2v2zm1.07-7.75l-.9.92C12.45 11.9 12 12.5 12 14h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>
+          Guide
+        </button>
+        <button onclick="createNewRoom()" title="Start New Room" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold rounded-lg text-xs transition active:scale-95">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          New Room
+        </button>
+        <button onclick="promptResetGame()" class="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white font-bold rounded-lg text-xs transition active:scale-95">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          Reset
+        </button>
+        <button id="btnAdvanced" onclick="toggleAdvancedDrawer()" title="Advanced Options" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold rounded-lg text-xs border border-transparent transition active:scale-95">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+          Advanced
+        </button>
+      </div>
+    </div>
+
+    <!-- Collapsible Advanced Settings Drawer -->
+    <div id="advancedSettingsDrawer" class="hidden bg-slate-800/95 border border-slate-700 rounded-xl p-3.5 md:p-4 shadow-lg space-y-3 animate-fade-in">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-700/60">
+        <span class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+          <span>⚙️ Advanced Options</span>
+        </span>
+        <button onclick="toggleAdvancedDrawer()" class="text-xs text-slate-400 hover:text-slate-200 transition">
+          ✕ Close
+        </button>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-4 text-xs">
+        <div class="flex items-center gap-1.5 text-slate-300">
+          <span class="font-semibold">Target Score:</span>
+          <select id="targetScoreSelect" onchange="updateTargetScore(this.value)" class="bg-slate-700 text-xs rounded px-2.5 py-1 border border-slate-600 font-bold text-amber-400 focus:outline-none">
+            <option value="150">150 pts</option>
+            <option value="200" selected>200 pts</option>
+            <option value="250">250 pts</option>
+            <option value="300">300 pts</option>
+          </select>
+        </div>
+
+        <label class="flex items-center gap-1.5 bg-slate-900 border border-slate-700 hover:border-amber-400/60 px-2.5 py-1.5 rounded-lg cursor-pointer transition select-none group" title="When someone wins, plays 'Amaze, Amaze, Amaze' audio and flashes screen">
+          <input type="checkbox" id="amazeWinToggle" onchange="toggleAmazeSetting(this.checked)" checked class="accent-amber-400 w-3.5 h-3.5 rounded cursor-pointer">
+          <span class="font-bold text-slate-300 group-hover:text-amber-300 transition">Amaze Win ⚡🔊</span>
+        </label>
+
+        <div class="flex items-center gap-1.5 bg-slate-900 border border-slate-700 px-2.5 py-1 rounded-lg">
+          <span class="text-slate-400 font-semibold">Status:</span>
+          <span id="connStatus" class="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-medium">
+            <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+            <span>Connecting...</span>
+          </span>
+        </div>
+
+        <button onclick="fetchRemoteState(true)" title="Force Sync Now" class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold rounded-lg text-xs transition active:scale-95 border border-slate-600">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+          <span>Sync Now</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Match Standings Table -->
+    <div class="bg-slate-800 rounded-xl p-4 md:p-5 border border-slate-700 shadow-lg overflow-x-auto">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <span>Match Standings</span>
+          <span id="targetBadge" class="text-xs font-normal text-slate-400">(First to 200 pts)</span>
+        </h2>
+        <button onclick="promptAddPlayer()" id="addPlayerBtn" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold rounded-lg flex items-center gap-1 transition active:scale-95">
+          <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          Add Player (Max 10)
+        </button>
+      </div>
+
+      <table class="w-full text-left border-collapse min-w-[560px]">
+        <thead>
+          <tr class="border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider">
+            <th class="py-2 px-3">Player</th>
+            <th class="py-2 px-3 text-center w-32">Total Score</th>
+            <th class="py-2 px-3">Round History</th>
+            <th class="py-2 px-3 text-center w-24">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="playerTableBody" class="divide-y divide-slate-700/50 text-sm">
+          <!-- Populated dynamically -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Round Scoring Section -->
+    <div class="bg-slate-800 rounded-xl p-4 md:p-5 border border-slate-700 shadow-lg space-y-4">
+      <div class="flex flex-wrap justify-between items-center gap-2">
+        <div class="flex items-center gap-3">
+          <h2 class="text-lg font-bold text-amber-400">Round Scoring</h2>
+          <div class="inline-flex bg-slate-900 p-0.5 rounded-lg border border-slate-700 text-xs font-semibold">
+            <button id="btnTabCalc" onclick="setInputMode('calc')" class="px-3 py-1 rounded-md bg-amber-500 text-slate-950 font-bold transition-all">Card Calculator</button>
+            <button id="btnTabManual" onclick="setInputMode('manual')" class="px-3 py-1 rounded-md text-slate-400 hover:text-white transition-all">Manual Score</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 1: Interactive Card Calculator -->
+      <div id="calculatorView" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Number Cards Selection -->
+        <div class="space-y-2">
+          <label class="text-xs font-semibold text-slate-300">1. Number Cards in Line:</label>
+          <div class="grid grid-cols-7 gap-1.5" id="numberButtons">
+            <!-- Populated by JS -->
+          </div>
+
+          <!-- Lucky 13 Extra Duplicate Button -->
+          <div id="lucky13Container" class="pt-1 hidden">
+            <button id="btnLucky13" onclick="toggleLucky13()" class="w-full py-1.5 bg-slate-700 hover:bg-slate-600 text-xs font-bold text-slate-300 rounded-lg border border-slate-600 transition active:scale-98">
+              [+] Add 2nd "Lucky 13" Card (+13)
+            </button>
+          </div>
+
+          <div class="text-xs text-slate-400 mt-1 flex justify-between">
+            <span>Hand: <span id="selectedNumbers" class="text-amber-300 font-mono">None</span></span>
+            <span>Cards: <span id="cardCount" class="font-bold text-amber-400">0</span>/7</span>
+          </div>
+        </div>
+
+        <!-- Modifiers Section -->
+        <div class="space-y-3">
+          <div>
+            <label class="text-xs font-semibold text-slate-300">2. Modifiers:</label>
+            <div class="flex flex-wrap gap-2 mt-1">
+              <label id="modDiv2Container" class="hidden items-center gap-1.5 bg-slate-700 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer border border-red-500/50">
+                <input type="checkbox" id="modDiv2" onchange="calculateScore()" class="accent-red-500">
+                <span class="font-bold text-red-300">/2 (Cut in Half)</span>
+              </label>
+
+              <label id="modX2Container" class="flex items-center gap-1.5 bg-slate-700 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer border border-amber-500/50">
+                <input type="checkbox" id="modX2" onchange="calculateScore()" class="accent-amber-400">
+                <span class="font-bold text-amber-300">x2 (Double)</span>
+              </label>
+
+              <select id="vengeanceNegativeMod" onchange="calculateScore()" class="hidden bg-slate-700 text-xs rounded-lg px-2 py-1.5 border border-red-500 text-red-300 focus:outline-none">
+                <option value="0">0 (No Penalty Card)</option>
+                <option value="-2">-2 Modifier</option>
+                <option value="-4">-4 Modifier</option>
+                <option value="-6">-6 Modifier</option>
+                <option value="-8">-8 Modifier</option>
+                <option value="-10">-10 Modifier</option>
+              </select>
+
+              <select id="standardPositiveMod" onchange="calculateScore()" class="bg-slate-700 text-xs rounded-lg px-2 py-1.5 border border-amber-500 text-amber-300 focus:outline-none">
+                <option value="0">+0 Flat</option>
+                <option value="2">+2 Card</option>
+                <option value="4">+4 Card</option>
+                <option value="6">+6 Card</option>
+                <option value="8">+8 Card</option>
+                <option value="10">+10 Card</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Special Status / Flip 7 / Bust -->
+          <div>
+            <label class="text-xs font-semibold text-slate-300">3. Status &amp; Rules:</label>
+            <div class="flex flex-wrap gap-2 mt-1">
+              <label class="flex items-center gap-1.5 bg-slate-700 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer">
+                <input type="checkbox" id="flip7Bonus" onchange="calculateScore()" class="accent-amber-400">
+                <span>Flip 7 Bonus (+15 pts)</span>
+              </label>
+
+              <label class="flex items-center gap-1.5 bg-red-950/60 border border-red-800 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer">
+                <input type="checkbox" id="bustCheck" onchange="handleBustToggle()" class="accent-red-500">
+                <span id="bustCheckboxLabel" class="text-red-400 font-semibold">Busted (0 pts)</span>
+              </label>
+
+              <label id="brutalModeContainer" class="hidden items-center gap-1.5 bg-purple-950/60 border border-purple-800 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer">
+                <input type="checkbox" id="brutalCheck" onchange="calculateScore()" class="accent-purple-400">
+                <span class="text-purple-300 text-xs">Brutal Mode (Can go below 0)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 2: Direct Manual Score Entry -->
+      <div id="manualScoreView" class="hidden bg-slate-900/60 border border-slate-700/80 rounded-xl p-4 flex flex-wrap items-center gap-4">
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-slate-300">Enter Round Score Directly:</label>
+          <div class="flex items-center gap-2">
+            <input type="number" id="manualScoreInput" placeholder="0" oninput="updateManualScore()" onkeydown="if(event.key==='Enter') commitRoundScore()" class="bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xl font-mono font-bold text-amber-400 w-36 focus:outline-none focus:border-amber-400">
+            <button id="manualBustPresetBtn" onclick="setManualPreset(0)" class="px-3 py-2 bg-red-950/70 border border-red-800 hover:bg-red-900 text-red-300 rounded-lg text-xs font-bold transition active:scale-95">Bust (0)</button>
+            <button onclick="setManualPreset(15)" class="px-3 py-2 bg-slate-800 border border-slate-600 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition active:scale-95">+15</button>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 max-w-sm">Type any score already tallied on the table or use the shortcut buttons. Press Enter or click "Add to Score" to commit.</p>
+      </div>
+
+      <!-- Calculation Breakdown & Player Selector -->
+      <div class="bg-slate-900 rounded-lg p-3 border border-slate-700 flex flex-wrap items-center justify-between gap-3">
+        <div class="text-xs font-mono">
+          <span class="text-slate-400">Formula / Input: </span>
+          <span id="formulaPreview" class="text-slate-200">0 = 0</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-base font-bold text-amber-400 whitespace-nowrap">
+            Round Total: <span id="calculatedTotal">0</span> pts
+          </span>
+          
+          <!-- Adaptive Container (Radio Buttons for <=4, Dropdown for >4) -->
+          <div id="playerSelectorContainer" class="flex items-center gap-1.5">
+            <!-- Rendered by renderPlayerSelector() -->
+          </div>
+
+          <button onclick="commitRoundScore()" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs rounded-lg transition whitespace-nowrap shadow-sm active:scale-95">
+            Add to Score
+          </button>
+
+          <!-- Undo option for scores added to other players -->
+          <button id="otherPlayerUndoBtn" onclick="undoOtherPlayerScore()" class="hidden items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-lg transition shadow-sm active:scale-95 whitespace-nowrap" title="Undo the score you just added to another player">
+            <span>↩ Undo</span>
+            <span id="otherPlayerUndoLabel" class="text-[11px] font-normal opacity-90"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const FIREBASE_BASE_URL = "https://flip7app-dbdfe-default-rtdb.firebaseio.com".replace(/\/+$/, "");
+
+    let roomId = null;
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      roomId = urlParams.get('room');
+    } catch (e) {}
+
+    if (!roomId) {
+      roomId = 'f7_' + Math.random().toString(36).substring(2, 8).toLowerCase();
+      try {
+        if (window.location.protocol !== 'blob:' && window.location.protocol !== 'about:') {
+          window.history.replaceState(null, '', `?room=${roomId}`);
+        }
+      } catch (e) {}
+    }
+    document.getElementById('roomDisplay').innerText = roomId.toUpperCase();
+
+    let STORAGE_KEY = `flip7_cache_${roomId}`;
+    let DB_URL = `${FIREBASE_BASE_URL}/rooms/${roomId}.json`;
+
+    function generatePlayerId() {
+      return 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+    }
+
+    let gameState = {
+      players: [],
+      mode: 'standard',
+      targetScore: 200,
+      whistlerRules: false,
+      timestamp: 0
+    };
+
+    function sanitizeGameState(state) {
+      if (!state || typeof state !== 'object') return;
+      if (!Array.isArray(state.players)) state.players = [];
+      state.players.forEach(p => {
+        if (!p.id) p.id = generatePlayerId();
+        if (!Array.isArray(p.rounds)) p.rounds = [];
+      });
+    }
+
+    try {
+      const cached = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (cached && cached.players) {
+        gameState = cached;
+        sanitizeGameState(gameState);
+      }
+    } catch(e) {}
+
+    let currentSelectedNumbers = [];
+    let hasSecond13 = false;
+    let isPushing = false;
+    let isFetching = false;
+    let pollTimeoutId = null;
+    let activePlayerIdx = null;
+    let activeHistoryPlayerIdx = null;
+    let scoringInputMode = 'calc';
+    let celebratedWinnerId = null;
+    let myPlayerId = null;
+    let myPlayerName = null;
+    let hasPromptedIdentity = false;
+    let lastOtherPlayerCommit = null;
+    let otherPlayerBannerTimeout = null;
+    let otherPlayerDismissTimeout = null;
+
+    try {
+      myPlayerId = localStorage.getItem(`flip7_player_id_${roomId}`);
+      myPlayerName = localStorage.getItem(`flip7_player_identity_${roomId}`);
+    } catch(e) {}
+
+    let modalResolve = null;
+
+    function showModal({ title, message, showInput = false, defaultValue = '', confirmText = 'Confirm', cancelText = 'Cancel' }) {
+      return new Promise((resolve) => {
+        modalResolve = resolve;
+        document.getElementById('modalTitle').innerText = title;
+        document.getElementById('modalMessage').innerText = message;
+        
+        const inputContainer = document.getElementById('modalInputContainer');
+        const inputField = document.getElementById('modalInput');
+        const confirmBtn = document.getElementById('modalConfirmBtn');
+        const cancelBtn = document.getElementById('modalCancelBtn');
+
+        confirmBtn.innerText = confirmText;
+        cancelBtn.innerText = cancelText;
+
+        if (showInput) {
+          inputContainer.classList.remove('hidden');
+          inputField.value = defaultValue;
+          setTimeout(() => { inputField.focus(); inputField.select(); }, 50);
+          inputField.onkeydown = (e) => {
+            if (e.key === 'Enter') closeModal(true);
+            if (e.key === 'Escape') closeModal(false);
+          };
+        } else {
+          inputContainer.classList.add('hidden');
+        }
+
+        const modal = document.getElementById('customModal');
+        modal.classList.remove('hidden');
+      });
+    }
+
+    function closeModal(isConfirmed) {
+      const modal = document.getElementById('customModal');
+      const inputField = document.getElementById('modalInput');
+      const inputContainer = document.getElementById('modalInputContainer');
+      modal.classList.add('hidden');
+
+      if (modalResolve) {
+        if (!isConfirmed) {
+          modalResolve(null);
+        } else if (!inputContainer.classList.contains('hidden')) {
+          modalResolve(inputField.value);
+        } else {
+          modalResolve(true);
+        }
+        modalResolve = null;
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      
+      const colors = {
+        info: 'bg-slate-800 border-amber-400/50 text-slate-100',
+        success: 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200',
+        error: 'bg-red-950/90 border-red-500/50 text-red-200'
+      };
+
+      toast.className = `p-3 rounded-xl border text-xs font-semibold shadow-2xl backdrop-blur-sm pointer-events-auto transition-all duration-300 transform -translate-y-3 opacity-0 flex items-center justify-between gap-3 ${colors[type] || colors.info}`;
+      toast.innerHTML = `
+        <span>${escapeHtml(message)}</span>
+        <button onclick="this.parentElement.remove()" class="opacity-60 hover:opacity-100 text-xs font-bold px-1">&times;</button>
+      `;
+
+      container.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.classList.remove('-translate-y-3', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', '-translate-y-3');
+        setTimeout(() => toast.remove(), 320);
+      }, 3500);
+    }
+
+    let audioContextUnlocked = false;
+    let globalAudioCtx = null;
+
+    function unlockAudioOnFirstInteraction() {
+      if (audioContextUnlocked) return;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          globalAudioCtx = new AudioCtx();
+          if (globalAudioCtx.state === 'suspended') {
+            globalAudioCtx.resume();
+          }
+        }
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.getVoices();
+        }
+        audioContextUnlocked = true;
+      } catch (e) {}
+    }
+
+    window.addEventListener('click', unlockAudioOnFirstInteraction, { once: true });
+    window.addEventListener('touchstart', unlockAudioOnFirstInteraction, { once: true });
+
+    function isAmazeEnabled() {
+      const toggle = document.getElementById('amazeWinToggle');
+      return toggle ? toggle.checked : true;
+    }
+
+    function toggleAmazeSetting(enabled) {
+      try {
+        localStorage.setItem('flip7_amaze_fx_pref', enabled ? 'true' : 'false');
+      } catch (e) {}
+    }
+
+    function initAmazePreference() {
+      try {
+        const pref = localStorage.getItem('flip7_amaze_fx_pref');
+        const toggle = document.getElementById('amazeWinToggle');
+        if (toggle && pref !== null) {
+          toggle.checked = (pref === 'true');
+        }
+      } catch (e) {}
+    }
+
+    function playAmazeAudio() {
+      try {
+        const ctx = globalAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === 'suspended') ctx.resume();
+
+        const notes = [
+          { f: 523.25, t: 0.00, d: 0.15 },
+          { f: 659.25, t: 0.15, d: 0.15 },
+          { f: 783.99, t: 0.30, d: 0.18 },
+          { f: 1046.50, t: 0.48, d: 0.45 }
+        ];
+
+        notes.forEach(({ f, t, d }) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(f, ctx.currentTime + t);
+          gain.gain.setValueAtTime(0.2, ctx.currentTime + t);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + d);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + t);
+          osc.stop(ctx.currentTime + t + d + 0.05);
+        });
+      } catch (e) {}
+
+      if ('speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance("Amaze, Amaze, Amaze!");
+          utterance.rate = 0.95;
+          utterance.pitch = 1.25;
+          utterance.volume = 1.0;
+          window.speechSynthesis.speak(utterance);
+        } catch (e) {}
+      }
+    }
+
+    function triggerAmazeCelebration(winnerName) {
+      if (!isAmazeEnabled()) return;
+      playAmazeAudio();
+
+      const overlay = document.getElementById('amazeFlashOverlay');
+      if (overlay) {
+        overlay.classList.remove('hidden', 'amaze-flashing');
+        void overlay.offsetWidth;
+        overlay.classList.add('amaze-flashing');
+        setTimeout(() => {
+          overlay.classList.remove('amaze-flashing');
+          overlay.classList.add('hidden');
+        }, 3000);
+      }
+
+      const banner = document.getElementById('amazeBannerOverlay');
+      const heading = document.getElementById('amazeWinnerHeading');
+      if (banner && heading) {
+        heading.innerText = `${winnerName} Wins!`;
+        banner.classList.remove('hidden');
+      }
+    }
+
+    function dismissAmazeBanner() {
+      const banner = document.getElementById('amazeBannerOverlay');
+      if (banner) banner.classList.add('hidden');
+    }
+
+    let whistlerGifTimeout = null;
+
+    function showWhistlerGif() {
+      const overlay = document.getElementById('whistlerGifOverlay');
+      if (overlay) {
+        if (whistlerGifTimeout) {
+          clearTimeout(whistlerGifTimeout);
+          whistlerGifTimeout = null;
+        }
+
+        overlay.classList.remove('hidden');
+        const img = document.getElementById('whistlerGifImg');
+        if (img) {
+          const currentSrc = img.src;
+          img.src = '';
+          img.src = currentSrc;
+        }
+
+        whistlerGifTimeout = setTimeout(() => {
+          dismissWhistlerGif();
+        }, 3500);
+      }
+    }
+
+    function dismissWhistlerGif() {
+      if (whistlerGifTimeout) {
+        clearTimeout(whistlerGifTimeout);
+        whistlerGifTimeout = null;
+      }
+      const overlay = document.getElementById('whistlerGifOverlay');
+      if (overlay) {
+        overlay.classList.add('hidden');
+      }
+    }
+
+    function applyFontSizeClasses() {
+      const isSheOld = !!document.getElementById('sheOldToggle')?.checked;
+      const isEvenOlder = !!document.getElementById('evenOlderToggle')?.checked;
+      const isOldCunt = !!document.getElementById('oldCuntToggle')?.checked;
+
+      document.documentElement.classList.remove('she-old', 'even-older', 'old-cunt');
+
+      if (isSheOld && isEvenOlder && isOldCunt) {
+        document.documentElement.classList.add('old-cunt');
+        document.documentElement.style.fontSize = '175%';
+      } else if (isSheOld && isEvenOlder) {
+        document.documentElement.classList.add('even-older');
+        document.documentElement.style.fontSize = '145%';
+      } else if (isSheOld) {
+        document.documentElement.classList.add('she-old');
+        document.documentElement.style.fontSize = '120%';
+      } else {
+        document.documentElement.style.fontSize = '';
+      }
+    }
+
+    function toggleSheOld(enabled) {
+      const evenOlderContainer = document.getElementById('evenOlderContainer');
+      const evenOlderToggle = document.getElementById('evenOlderToggle');
+      const oldCuntContainer = document.getElementById('oldCuntContainer');
+      const oldCuntToggle = document.getElementById('oldCuntToggle');
+      
+      if (enabled) {
+        evenOlderContainer.classList.remove('hidden');
+        evenOlderContainer.classList.add('flex');
+      } else {
+        evenOlderContainer.classList.add('hidden');
+        evenOlderContainer.classList.remove('flex');
+        if (evenOlderToggle) evenOlderToggle.checked = false;
+
+        oldCuntContainer.classList.add('hidden');
+        oldCuntContainer.classList.remove('flex');
+        if (oldCuntToggle) oldCuntToggle.checked = false;
+      }
+
+      applyFontSizeClasses();
+
+      try {
+        localStorage.setItem('flip7_she_old_pref', enabled ? 'true' : 'false');
+        if (!enabled) {
+          localStorage.setItem('flip7_even_older_pref', 'false');
+          localStorage.setItem('flip7_old_cunt_pref', 'false');
+        }
+      } catch (e) {}
+    }
+
+    function toggleEvenOlder(enabled) {
+      const oldCuntContainer = document.getElementById('oldCuntContainer');
+      const oldCuntToggle = document.getElementById('oldCuntToggle');
+
+      if (enabled) {
+        oldCuntContainer.classList.remove('hidden');
+        oldCuntContainer.classList.add('flex');
+      } else {
+        oldCuntContainer.classList.add('hidden');
+        oldCuntContainer.classList.remove('flex');
+        if (oldCuntToggle) oldCuntToggle.checked = false;
+      }
+
+      applyFontSizeClasses();
+
+      try {
+        localStorage.setItem('flip7_even_older_pref', enabled ? 'true' : 'false');
+        if (!enabled) localStorage.setItem('flip7_old_cunt_pref', 'false');
+      } catch (e) {}
+    }
+
+    function toggleOldCunt(enabled) {
+      const oldCuntToggle = document.getElementById('oldCuntToggle');
+      if (oldCuntToggle) oldCuntToggle.checked = !!enabled;
+
+      applyFontSizeClasses();
+
+      try {
+        localStorage.setItem('flip7_old_cunt_pref', enabled ? 'true' : 'false');
+      } catch (e) {}
+    }
+
+    function initAgePreferences() {
+      try {
+        const isSheOld = localStorage.getItem('flip7_she_old_pref') === 'true';
+        const isEvenOlder = localStorage.getItem('flip7_even_older_pref') === 'true';
+        const isOldCunt = localStorage.getItem('flip7_old_cunt_pref') === 'true';
+
+        const sheOldCheckbox = document.getElementById('sheOldToggle');
+        const evenOlderCheckbox = document.getElementById('evenOlderToggle');
+        const evenOlderContainer = document.getElementById('evenOlderContainer');
+        const oldCuntCheckbox = document.getElementById('oldCuntToggle');
+        const oldCuntContainer = document.getElementById('oldCuntContainer');
+
+        if (sheOldCheckbox) sheOldCheckbox.checked = isSheOld;
+        if (evenOlderCheckbox) evenOlderCheckbox.checked = isEvenOlder && isSheOld;
+        if (oldCuntCheckbox) oldCuntCheckbox.checked = isOldCunt && isEvenOlder && isSheOld;
+
+        if (isSheOld && evenOlderContainer) {
+          evenOlderContainer.classList.remove('hidden');
+          evenOlderContainer.classList.add('flex');
+        }
+
+        if (isSheOld && isEvenOlder && oldCuntContainer) {
+          oldCuntContainer.classList.remove('hidden');
+          oldCuntContainer.classList.add('flex');
+        }
+
+        applyFontSizeClasses();
+      } catch (e) {}
+    }
+
+    function isWhistlerActive() {
+      return !!gameState.whistlerRules;
+    }
+
+    function getBustCheckboxLabelText() {
+      return isWhistlerActive() ? 'Busted Bitch (0 pts)' : 'Busted (0 pts)';
+    }
+
+    function getBustPresetBtnText() {
+      return isWhistlerActive() ? 'Busted Bitch (0)' : 'Bust (0)';
+    }
+
+    function getBustFormulaText() {
+      return isWhistlerActive() ? 'BUSTED BITCH = 0 Points' : 'BUSTED = 0 Points';
+    }
+
+    function toggleAdvancedDrawer() {
+      const drawer = document.getElementById('advancedSettingsDrawer');
+      const btn = document.getElementById('btnAdvanced');
+      if (drawer) {
+        const isHidden = drawer.classList.contains('hidden');
+        if (isHidden) {
+          drawer.classList.remove('hidden');
+          btn.classList.add('bg-slate-600', 'border-amber-400/80', 'text-amber-300');
+        } else {
+          drawer.classList.add('hidden');
+          btn.classList.remove('bg-slate-600', 'border-amber-400/80', 'text-amber-300');
+        }
+      }
+    }
+
+    function toggleWhistlerRules(enabled) {
+      gameState.whistlerRules = enabled;
+      updateWhistlerUI();
+      if (enabled) {
+        showWhistlerGif();
+      }
+      if (document.getElementById('bustCheck').checked) {
+        handleBustToggle();
+      } else if (scoringInputMode === 'calc') {
+        calculateScore();
+      }
+      syncState();
+    }
+
+    function updateWhistlerUI() {
+      const active = isWhistlerActive();
+      const toggle = document.getElementById('whistlerRulesToggle');
+      if (toggle) toggle.checked = active;
+
+      const badge = document.getElementById('whistlerBadge');
+      if (badge) {
+        if (active) badge.classList.remove('hidden');
+        else badge.classList.add('hidden');
+      }
+
+      const bustLabel = document.getElementById('bustCheckboxLabel');
+      if (bustLabel) bustLabel.innerText = getBustCheckboxLabelText();
+
+      const bustPresetBtn = document.getElementById('manualBustPresetBtn');
+      if (bustPresetBtn) bustPresetBtn.innerText = getBustPresetBtnText();
+    }
+
+    function setInputMode(mode) {
+      scoringInputMode = mode;
+      const btnCalc = document.getElementById('btnTabCalc');
+      const btnManual = document.getElementById('btnTabManual');
+      const calcView = document.getElementById('calculatorView');
+      const manualView = document.getElementById('manualScoreView');
+
+      if (mode === 'manual') {
+        btnManual.className = "px-3 py-1 rounded-md bg-amber-500 text-slate-950 font-bold transition-all shadow-sm";
+        btnCalc.className = "px-3 py-1 rounded-md text-slate-400 hover:text-white transition-all";
+        calcView.classList.add('hidden');
+        manualView.classList.remove('hidden');
+        updateManualScore();
+        document.getElementById('manualScoreInput').focus();
+      } else {
+        btnCalc.className = "px-3 py-1 rounded-md bg-amber-500 text-slate-950 font-bold transition-all shadow-sm";
+        btnManual.className = "px-3 py-1 rounded-md text-slate-400 hover:text-white transition-all";
+        manualView.classList.add('hidden');
+        calcView.classList.remove('hidden');
+        calculateScore();
+      }
+    }
+
+    function updateManualScore() {
+      if (scoringInputMode !== 'manual') return;
+      const val = parseInt(document.getElementById('manualScoreInput').value, 10);
+      const total = isNaN(val) ? 0 : val;
+      document.getElementById('calculatedTotal').innerText = total;
+      document.getElementById('formulaPreview').innerText = `Manual Entry = ${total}`;
+    }
+
+    function setManualPreset(val) {
+      const input = document.getElementById('manualScoreInput');
+      if (val === 0) {
+        input.value = 0;
+      } else {
+        const cur = parseInt(input.value, 10);
+        input.value = isNaN(cur) ? val : (cur + val);
+      }
+      updateManualScore();
+    }
+
+    async function fetchRemoteState(manual = false) {
+      if (isPushing || isFetching) return;
+      isFetching = true;
+      const statusBadge = document.getElementById('connStatus');
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      try {
+        const res = await fetch(DB_URL, { 
+          cache: 'no-store',
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const remote = await res.json();
+          if (remote && remote.timestamp && remote.timestamp > gameState.timestamp) {
+            gameState = remote;
+            sanitizeGameState(gameState);
+            saveLocal();
+            applyModeUI();
+            updateWhistlerUI();
+            renderNumberButtons();
+            renderScoreboard();
+            if (scoringInputMode === 'calc') calculateScore();
+          }
+          checkAndPromptIdentity();
+          statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Live Synced</span>';
+          statusBadge.className = "flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-medium";
+          if (manual) showToast("Scoreboard synced with cloud!", "success");
+        } else {
+          statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span><span>Sync Error</span>';
+          statusBadge.className = "flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium";
+        }
+      } catch (e) {
+        clearTimeout(timeoutId);
+        statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span><span>Network Error</span>';
+        statusBadge.className = "flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium";
+      } finally {
+        isFetching = false;
+      }
+    }
+
+    async function syncState() {
+      gameState.timestamp = Date.now();
+      sanitizeGameState(gameState);
+      saveLocal();
+
+      isPushing = true;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      try {
+        await fetch(DB_URL, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(gameState),
+          signal: controller.signal
+        });
+      } catch (e) {
+        console.error("Sync error:", e);
+      } finally {
+        clearTimeout(timeoutId);
+        isPushing = false;
+      }
+    }
+
+    function saveLocal() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
+      } catch(e) {}
+    }
+
+    function scheduleNextPoll(delay = 1500) {
+      if (pollTimeoutId) clearTimeout(pollTimeoutId);
+      pollTimeoutId = setTimeout(async () => {
+        await fetchRemoteState();
+        const nextDelay = document.hidden ? 10000 : 1500;
+        scheduleNextPoll(nextDelay);
+      }, delay);
+    }
+
+    function setupVisibilityOptimizedPolling() {
+      scheduleNextPoll(1500);
+
+      document.addEventListener('visibilitychange', () => {
+        if (pollTimeoutId) clearTimeout(pollTimeoutId);
+        if (document.hidden) {
+          scheduleNextPoll(10000);
+        } else {
+          fetchRemoteState();
+          scheduleNextPoll(1500);
+        }
+      });
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        dismissWhistlerGif();
+        closeRoundHistoryModal();
+        closeIdentityModal();
+        closeAppOverviewModal();
+        closeModal(false);
+      }
+    });
+
+    function renderNumberButtons() {
+      const numContainer = document.getElementById('numberButtons');
+      numContainer.innerHTML = '';
+      const maxCard = (gameState.mode === 'vengeance') ? 13 : 12;
+
+      for (let i = 0; i <= maxCard; i++) {
+        const btn = document.createElement('button');
+        btn.innerText = i;
+        btn.id = 'num-btn-' + i;
+        const isSelected = currentSelectedNumbers.includes(i);
+        
+        btn.className = isSelected 
+          ? "py-2 rounded-lg text-sm font-extrabold transition-all bg-amber-500 text-slate-950 border border-amber-400 shadow-md shadow-amber-500/20 active:scale-95"
+          : "py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-bold text-slate-200 border border-slate-600 transition-all active:scale-95";
+        
+        btn.onclick = () => toggleNumber(i, btn);
+        numContainer.appendChild(btn);
+      }
+    }
+
+    function setGameMode(mode) {
+      gameState.mode = mode;
+      applyModeUI();
+      renderNumberButtons();
+      if (scoringInputMode === 'calc') calculateScore();
+      syncState();
+      showToast(`Switched to ${mode === 'vengeance' ? 'Vengeance' : 'Standard'} rules`, "info");
+    }
+
+    function updateTargetScore(val) {
+      gameState.targetScore = parseInt(val, 10);
+      document.getElementById('targetBadge').innerText = `(First to ${gameState.targetScore} pts)`;
+      syncState();
+    }
+
+    function applyModeUI() {
+      const isVengeance = (gameState.mode === 'vengeance');
+      const btnStd = document.getElementById('btnStandard');
+      const btnVeng = document.getElementById('btnVengeance');
+
+      if (isVengeance) {
+        btnVeng.className = "px-2.5 py-1 rounded font-bold bg-red-600 text-white transition";
+        btnStd.className = "px-2.5 py-1 rounded font-bold text-slate-400 hover:text-white transition";
+        document.getElementById('modDiv2Container').classList.remove('hidden');
+        document.getElementById('modDiv2Container').classList.add('flex');
+        document.getElementById('modX2Container').classList.add('hidden');
+        document.getElementById('modX2Container').classList.remove('flex');
+        document.getElementById('vengeanceNegativeMod').classList.remove('hidden');
+        document.getElementById('standardPositiveMod').classList.add('hidden');
+        document.getElementById('brutalModeContainer').classList.remove('hidden');
+        document.getElementById('brutalModeContainer').classList.add('flex');
+        document.getElementById('lucky13Container').classList.remove('hidden');
+      } else {
+        btnStd.className = "px-2.5 py-1 rounded font-bold bg-amber-500 text-slate-900 transition";
+        btnVeng.className = "px-2.5 py-1 rounded font-bold text-slate-400 hover:text-white transition";
+        document.getElementById('modDiv2Container').classList.add('hidden');
+        document.getElementById('modDiv2Container').classList.remove('flex');
+        document.getElementById('modX2Container').classList.remove('hidden');
+        document.getElementById('modX2Container').classList.add('flex');
+        document.getElementById('vengeanceNegativeMod').classList.add('hidden');
+        document.getElementById('standardPositiveMod').classList.remove('hidden');
+        document.getElementById('brutalModeContainer').classList.add('hidden');
+        document.getElementById('brutalModeContainer').classList.remove('flex');
+        document.getElementById('lucky13Container').classList.add('hidden');
+        hasSecond13 = false;
+        currentSelectedNumbers = currentSelectedNumbers.filter(n => n <= 12);
+        updateHandDisplay();
+      }
+      document.getElementById('targetBadge').innerText = `(First to ${gameState.targetScore || 200} pts)`;
+      document.getElementById('targetScoreSelect').value = gameState.targetScore || 200;
+      updateWhistlerUI();
+    }
+
+    function toggleNumber(num, btn) {
+      const idx = currentSelectedNumbers.indexOf(num);
+      const totalCards = currentSelectedNumbers.length + (hasSecond13 ? 1 : 0);
+
+      if (idx > -1) {
+        currentSelectedNumbers.splice(idx, 1);
+        btn.className = "py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-bold text-slate-200 border border-slate-600 transition-all active:scale-95";
+        if (num === 13 && hasSecond13) {
+          hasSecond13 = false;
+          const btnLucky13 = document.getElementById('btnLucky13');
+          if (btnLucky13) {
+            btnLucky13.className = "w-full py-1.5 bg-slate-700 hover:bg-slate-600 text-xs font-bold text-slate-300 rounded-lg border border-slate-600 transition-all active:scale-98";
+            btnLucky13.innerText = "[+] Add 2nd \"Lucky 13\" Card (+13)";
+          }
+        }
+      } else {
+        if (totalCards >= 7) {
+          return showToast("Maximum 7 cards for Flip 7 sequence!", "error");
+        }
+        currentSelectedNumbers.push(num);
+        btn.className = "py-2 rounded-lg text-sm font-extrabold transition-all bg-amber-500 text-slate-950 border border-amber-400 shadow-md shadow-amber-500/20 active:scale-95";
+      }
+      updateHandDisplay();
+      calculateScore();
+    }
+
+    function toggleLucky13() {
+      if (gameState.mode !== 'vengeance') return;
+      if (!currentSelectedNumbers.includes(13)) {
+        return showToast("Select the first 13 card before adding Lucky 13!", "info");
+      }
+      const totalCards = currentSelectedNumbers.length + (hasSecond13 ? 0 : 1);
+      if (!hasSecond13 && totalCards > 7) {
+        return showToast("Maximum 7 cards reached!", "error");
+      }
+
+      hasSecond13 = !hasSecond13;
+      const btn = document.getElementById('btnLucky13');
+      if (hasSecond13) {
+        btn.className = "w-full py-1.5 bg-amber-500 text-slate-950 text-xs font-extrabold rounded-lg border border-amber-400 shadow-md shadow-amber-500/20 transition-all active:scale-98";
+        btn.innerText = "[x] 2nd \"Lucky 13\" Active (+13)";
+      } else {
+        btn.className = "w-full py-1.5 bg-slate-700 hover:bg-slate-600 text-xs font-bold text-slate-300 rounded-lg border border-slate-600 transition-all active:scale-98";
+        btn.innerText = "[+] Add 2nd \"Lucky 13\" Card (+13)";
+      }
+      updateHandDisplay();
+      calculateScore();
+    }
+
+    function updateHandDisplay() {
+      let displayArr = [...currentSelectedNumbers];
+      if (hasSecond13) displayArr.push("13 (Lucky)");
+      document.getElementById('selectedNumbers').innerText = displayArr.join(', ') || 'None';
+      
+      const count = currentSelectedNumbers.length + (hasSecond13 ? 1 : 0);
+      document.getElementById('cardCount').innerText = count;
+      document.getElementById('flip7Bonus').checked = (count === 7);
+    }
+
+    function handleBustToggle() {
+      const isBust = document.getElementById('bustCheck').checked;
+      if (isBust) {
+        document.getElementById('calculatedTotal').innerText = "0";
+        document.getElementById('formulaPreview').innerText = getBustFormulaText();
+      } else {
+        calculateScore();
+      }
+    }
+
+    function calculateScore() {
+      if (scoringInputMode === 'manual') {
+        updateManualScore();
+        return;
+      }
+      if (document.getElementById('bustCheck').checked) {
+        handleBustToggle();
+        return;
+      }
+
+      const isVengeance = (gameState.mode === 'vengeance');
+      const hasZero = currentSelectedNumbers.includes(0);
+      const isFlip7 = document.getElementById('flip7Bonus').checked;
+
+      if (isVengeance && hasZero && !isFlip7) {
+        document.getElementById('calculatedTotal').innerText = "0";
+        document.getElementById('formulaPreview').innerText = "Zero Card in line without Flip 7 = 0 Points";
+        return;
+      }
+
+      let sumNum = currentSelectedNumbers.reduce((a, b) => a + b, 0);
+      if (hasSecond13) sumNum += 13;
+
+      let subtotal = sumNum;
+      let formulaStr = "";
+
+      if (isVengeance) {
+        const isDiv2 = document.getElementById('modDiv2').checked;
+        const penalty = parseInt(document.getElementById('vengeanceNegativeMod').value, 10);
+        const flipBonus = isFlip7 ? 15 : 0;
+        const brutalMode = document.getElementById('brutalCheck').checked;
+
+        if (isDiv2) {
+          subtotal = Math.floor(subtotal / 2);
+          formulaStr = `${sumNum} / 2 (${subtotal})`;
+        } else {
+          formulaStr = `${sumNum}`;
+        }
+
+        subtotal = subtotal + penalty;
+        formulaStr += ` ${penalty !== 0 ? penalty : '- 0'}`;
+
+        if (!brutalMode && subtotal < 0) {
+          subtotal = 0;
+          formulaStr += ` (Floored at 0)`;
+        }
+
+        subtotal += flipBonus;
+        if (flipBonus > 0) formulaStr += ` + 15 (Flip 7)`;
+
+        document.getElementById('formulaPreview').innerText = `${formulaStr} = ${subtotal}`;
+        document.getElementById('calculatedTotal').innerText = subtotal;
+
+      } else {
+        const isX2 = document.getElementById('modX2').checked;
+        const flatBonus = parseInt(document.getElementById('standardPositiveMod').value, 10);
+        const flipBonus = isFlip7 ? 15 : 0;
+
+        const multipliedSum = isX2 ? sumNum * 2 : sumNum;
+        const total = multipliedSum + flatBonus + flipBonus;
+
+        document.getElementById('formulaPreview').innerText = `(${sumNum}${isX2 ? ' x 2' : ''}) + ${flatBonus} + ${flipBonus} = ${total}`;
+        document.getElementById('calculatedTotal').innerText = total;
+      }
+    }
+
+    function renderPlayerSelector() {
+      const container = document.getElementById('playerSelectorContainer');
+      container.innerHTML = '';
+
+      const players = gameState.players || [];
+      if (players.length === 0) {
+        container.innerHTML = '<span class="text-xs text-slate-500 italic">Add players first</span>';
+        activePlayerIdx = null;
+        return;
+      }
+
+      if (activePlayerIdx === null || activePlayerIdx < 0 || activePlayerIdx >= players.length) {
+        let myIdx = -1;
+        if (myPlayerId) myIdx = players.findIndex(p => p.id === myPlayerId);
+        if (myIdx === -1 && myPlayerName) myIdx = players.findIndex(p => p.name.trim().toLowerCase() === myPlayerName.trim().toLowerCase());
+        activePlayerIdx = (myIdx !== -1) ? myIdx : 0;
+      }
+
+      if (players.length <= 4) {
+        const wrapper = document.createElement('div');
+        wrapper.className = "flex items-center gap-1.5 bg-slate-800 p-1 rounded-lg border border-slate-700";
+
+        players.forEach((p, idx) => {
+          const isSelected = (activePlayerIdx === idx);
+          const isMe = Boolean(
+            (myPlayerId && p.id === myPlayerId) ||
+            (!myPlayerId && myPlayerName && p.name && p.name.trim().toLowerCase() === myPlayerName.trim().toLowerCase())
+          );
+          const label = document.createElement('label');
+          label.className = `px-2.5 py-1 rounded-md text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 active:scale-95 ${
+            isSelected 
+              ? 'bg-amber-500 text-slate-950 shadow-sm' 
+              : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+          }`;
+          
+          label.innerHTML = `
+            <input type="radio" name="activePlayerRadio" value="${idx}" ${isSelected ? 'checked' : ''} class="hidden">
+            <span>${escapeHtml(p.name)}${isMe ? ' <span class="opacity-75 text-[10px] font-normal">(You)</span>' : ''}</span>
+          `;
+
+          label.onclick = () => {
+            activePlayerIdx = idx;
+            hideOtherPlayerUndoBtn();
+            renderPlayerSelector();
+            renderScoreboard();
+          };
+          wrapper.appendChild(label);
+        });
+
+        container.appendChild(wrapper);
+      } else {
+        const select = document.createElement('select');
+        select.id = 'submitToPlayerDropdown';
+        select.className = "bg-slate-700 text-xs rounded-lg px-2.5 py-1.5 border border-slate-600 font-semibold text-slate-200 focus:outline-none";
+
+        players.forEach((p, idx) => {
+          const opt = document.createElement('option');
+          opt.value = idx;
+          const isMe = Boolean(
+            (myPlayerId && p.id === myPlayerId) ||
+            (!myPlayerId && myPlayerName && p.name && p.name.trim().toLowerCase() === myPlayerName.trim().toLowerCase())
+          );
+          opt.innerText = p.name + (isMe ? ' (You)' : '');
+          if (activePlayerIdx === idx) opt.selected = true;
+          select.appendChild(opt);
+        });
+
+        select.value = String(activePlayerIdx);
+
+        select.onchange = (e) => {
+          activePlayerIdx = parseInt(e.target.value, 10);
+          hideOtherPlayerUndoBtn();
+          renderScoreboard();
+        };
+
+        container.appendChild(select);
+      }
+    }
+
+    function getSelectedPlayerIndex() {
+      const players = gameState.players || [];
+      if (players.length === 0) return null;
+      if (activePlayerIdx !== null && activePlayerIdx >= 0 && activePlayerIdx < players.length) {
+        return activePlayerIdx;
+      }
+      if (myPlayerId) {
+        const myIdx = players.findIndex(p => p.id === myPlayerId);
+        if (myIdx !== -1) {
+          activePlayerIdx = myIdx;
+          return myIdx;
+        }
+      }
+      if (myPlayerName) {
+        const myIdx = players.findIndex(p => p.name.trim().toLowerCase() === myPlayerName.trim().toLowerCase());
+        if (myIdx !== -1) {
+          activePlayerIdx = myIdx;
+          return myIdx;
+        }
+      }
+      activePlayerIdx = 0;
+      return 0;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function renderScoreboard() {
+      const tbody = document.getElementById('playerTableBody');
+      tbody.innerHTML = '';
+
+      const target = gameState.targetScore || 200;
+
+      if (!gameState.players || gameState.players.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-slate-500">No players yet. Add up to 10 players to start!</td></tr>';
+        renderPlayerSelector();
+        return;
+      }
+
+      let activeWinner = null;
+
+      gameState.players.forEach((p, idx) => {
+        const total = (p.rounds || []).reduce((a, b) => a + b, 0);
+        const hasWon = total >= target;
+        if (hasWon && !activeWinner) {
+          activeWinner = p.name;
+        }
+
+        const isCurrentlyActive = (activePlayerIdx === idx);
+        const isMe = Boolean(
+          (myPlayerId && p.id === myPlayerId) ||
+          (!myPlayerId && myPlayerName && p.name.trim().toLowerCase() === myPlayerName.trim().toLowerCase())
+        );
+
+        const tr = document.createElement('tr');
+        tr.className = `transition-colors ${hasWon ? 'bg-amber-950/40 font-bold' : isMe ? 'bg-sky-950/25 border-l-2 border-l-sky-400' : isCurrentlyActive ? 'bg-slate-700/30' : 'hover:bg-slate-750'}`;
+        
+        tr.innerHTML = `
+          <td class="py-2.5 px-3">
+            <div class="flex items-center gap-2">
+              <button onclick="promptEditPlayerName(${idx})" class="${isMe ? 'text-base md:text-lg font-bold text-sky-200 hover:text-sky-300' : 'text-sm font-semibold text-slate-100 hover:text-amber-400'} text-left transition flex items-center gap-1.5 group" title="Rename player">
+                <span class="underline decoration-slate-600 group-hover:decoration-amber-400 underline-offset-4">${escapeHtml(p.name)}</span>
+                <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-400 opacity-60 group-hover:opacity-100 transition-all fill-current" viewBox="0 0 24 24">
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+              </button>
+              ${isMe ? '<span class="text-xs font-black text-sky-200 bg-sky-500/30 border border-sky-400/50 px-2 py-0.5 rounded-full shadow-sm tracking-wide">You</span>' : ''}
+              ${hasWon ? '<span class="text-amber-400 font-bold text-xs bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.5 rounded ml-1">Winner!</span>' : ''}
+            </div>
+          </td>
+          <td class="py-2.5 px-3 text-center font-mono text-xl md:text-2xl font-black ${hasWon ? 'text-amber-400' : 'text-amber-300'} bg-slate-900/50 rounded-lg shadow-inner">
+            ${total}
+          </td>
+          <td class="py-2.5 px-3 text-slate-400 text-xs">
+            <button onclick="openRoundHistoryModal(${idx})" class="text-left hover:text-amber-300 transition group flex items-center gap-1.5" title="Click to view and edit rounds">
+              <span class="underline decoration-slate-600 group-hover:decoration-amber-300 underline-offset-2 font-mono">
+                ${(p.rounds || []).join(' + ') || '0'}
+              </span>
+              <span class="text-[10px] text-slate-500 group-hover:text-amber-400">✎</span>
+            </button>
+          </td>
+          <td class="py-2.5 px-3 text-center">
+            <div class="inline-flex items-center gap-2">
+              <button onclick="removeLastRound(${idx})" class="text-xs font-semibold text-amber-400 hover:text-amber-300 hover:underline" title="Undo last round score">
+                Undo
+              </button>
+              <span class="text-slate-600">|</span>
+              <button onclick="promptRemovePlayer(${idx})" class="text-xs font-bold text-red-400 hover:text-red-300 hover:underline" title="Remove player from match">
+                ✕
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      if (activeWinner && celebratedWinnerId !== activeWinner) {
+        celebratedWinnerId = activeWinner;
+        triggerAmazeCelebration(activeWinner);
+      } else if (!activeWinner) {
+        celebratedWinnerId = null;
+      }
+
+      document.getElementById('addPlayerBtn').style.display = (gameState.players.length >= 10) ? 'none' : 'inline-flex';
+      renderPlayerSelector();
+    }
+
+    function updateIdentityUI() {
+      const nameLabel = document.getElementById('myIdentityName');
+      if (nameLabel) {
+        nameLabel.innerText = myPlayerName || 'Guest';
+      }
+    }
+
+    let currentGuideStep = 0;
+
+    const guideSteps = [
+      {
+        title: "1. Add to Score",
+        desc: "Tap cards in the grid for your score and tap Add to Score.",
+        mockup: `
+          <div class="space-y-3">
+            <div class="guide-highlight bg-slate-800/95 p-3 rounded-xl border border-amber-500/80 space-y-2.5 shadow-lg">
+              <div class="text-[11px] font-bold text-slate-300">1. Number Cards in Line:</div>
+              <div class="grid grid-cols-7 gap-1">
+                <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">0</span>
+                <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">1</span>
+                <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">2</span>
+                <span class="py-1.5 bg-amber-500 text-center rounded text-xs font-black text-slate-950 shadow-sm">3</span>
+                <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">4</span>
+                <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">5</span>
+                <span class="py-1.5 bg-amber-500 text-center rounded text-xs font-black text-slate-950 shadow-sm">6</span>
+                <span class="py-1.5 bg-amber-500 text-center rounded text-xs font-black text-slate-950 shadow-sm">7</span>
+                <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">8</span>
+                <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">9</span>
+                <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">10</span>
+                <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">11</span>
+                <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">12</span>
+                <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">13</span>
+              </div>
+              <div class="flex items-center justify-between pt-1">
+                <span class="text-xs font-bold text-amber-400">Total: 16 pts</span>
+                <button class="px-3.5 py-1.5 bg-amber-500 text-slate-950 font-black text-xs rounded-lg shadow-md pointer-events-none">
+                  Add to Score ↵
+                </button>
+              </div>
+            </div>
+          </div>
+        `
+      },
+      {
+        title: "2. Standard vs. Vengeance",
+        desc: "Switches between Standard and Vengeance rules.",
+        mockup: `
+          <div class="space-y-2.5">
+            <div class="guide-highlight bg-slate-800/90 p-2.5 rounded-xl border border-amber-500/80 flex items-center justify-between">
+              <span class="text-xs text-slate-300 font-semibold">Game Mode:</span>
+              <div class="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700 text-xs">
+                <span class="px-2 py-0.5 rounded font-bold text-slate-400">Standard</span>
+                <span class="px-2 py-0.5 rounded font-bold bg-red-600 text-white shadow-sm">Vengeance</span>
+              </div>
+            </div>
+          </div>
+        `
+      },
+      {
+        title: "3. Apply Modifiers",
+        desc: "Use this section to apply modifiers to your score",
+        mockup: `
+          <div class="space-y-2">
+            <div class="grid grid-cols-7 gap-1">
+              <span class="py-1 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">0</span>
+              <span class="py-1 bg-amber-500 text-center rounded text-xs font-black text-slate-950">5</span>
+              <span class="py-1 bg-amber-500 text-center rounded text-xs font-black text-slate-950">8</span>
+              <span class="py-1 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">9</span>
+              <span class="py-1 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">11</span>
+              <span class="py-1 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">12</span>
+              <span class="py-1 bg-amber-500 text-center rounded text-xs font-black text-slate-950">13</span>
+            </div>
+            <div class="guide-highlight bg-slate-800/90 p-2.5 rounded-xl border border-amber-500/80 space-y-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="bg-slate-700 border border-red-500/60 px-2 py-1 rounded text-[11px] font-bold text-red-300 flex items-center gap-1">
+                  <span class="w-3 h-3 bg-red-500 rounded-sm inline-block"></span> /2 (Cut in Half)
+                </span>
+                <span class="bg-slate-700 border border-red-500/60 px-2 py-1 rounded text-[11px] font-bold text-red-300">
+                  -4 Modifier
+                </span>
+                <span class="bg-slate-700 px-2 py-1 rounded text-[11px] text-amber-300 font-semibold">
+                  Flip 7 (+15)
+                </span>
+              </div>
+              <div class="bg-slate-900/80 p-1.5 rounded text-[11px] font-mono text-slate-200">
+                Formula: (26 / 2) - 4 + 15 = 24
+              </div>
+            </div>
+          </div>
+        `
+      },
+      {
+        title: "4. Busted",
+        desc: "Check the Busted box to set your round score to 0 points.",
+        mockup: `
+          <div class="space-y-3">
+            <div class="guide-highlight bg-red-950/70 border border-red-600/80 p-3 rounded-xl flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <input type="checkbox" checked class="accent-red-500 w-4 h-4" disabled>
+                <span class="text-red-300 font-bold text-xs">Busted (0 pts)</span>
+              </div>
+              <span class="text-xs font-mono font-bold text-red-400 bg-red-900/60 px-2 py-1 rounded">
+                0 Points
+              </span>
+            </div>
+          </div>
+        `
+      },
+      {
+        title: "5. Manual Score",
+        desc: "Switch to this to manually enter your score total.",
+        mockup: `
+          <div class="space-y-3">
+            <div class="flex items-center gap-2 bg-slate-900 p-1 rounded-lg border border-slate-700 w-fit text-xs">
+              <span class="px-2.5 py-1 text-slate-400 font-medium">Card Calculator</span>
+              <span class="px-2.5 py-1 bg-amber-500 text-slate-950 font-bold rounded-md shadow-sm">Manual Score</span>
+            </div>
+            <div class="guide-highlight bg-slate-800/90 border border-amber-500/80 p-3 rounded-xl flex items-center gap-3">
+              <div class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xl font-mono font-bold text-amber-400 w-24 text-center">
+                42
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="px-2.5 py-1.5 bg-red-950/70 border border-red-800 text-red-300 rounded-lg text-xs font-bold">Bust (0)</span>
+                <span class="px-2.5 py-1.5 bg-slate-700 text-slate-200 rounded-lg text-xs font-bold">+15</span>
+              </div>
+            </div>
+          </div>
+        `
+      }
+    ];
+
+    function renderGuideStep(stepIndex) {
+      if (stepIndex < 0) stepIndex = 0;
+      if (stepIndex >= guideSteps.length) stepIndex = guideSteps.length - 1;
+      currentGuideStep = stepIndex;
+
+      const step = guideSteps[currentGuideStep];
+
+      document.getElementById('guideTitle').innerText = step.title;
+      document.getElementById('guideDescription').innerText = step.desc;
+      document.getElementById('guideScreenshotFrame').innerHTML = step.mockup;
+
+      const bulletsContainer = document.getElementById('guideBulletPoints');
+      if (step.bullets && step.bullets.length > 0) {
+        bulletsContainer.classList.remove('hidden');
+        bulletsContainer.innerHTML = step.bullets.map(b => `
+          <div class="flex items-start gap-2">
+            <span class="text-amber-400 text-xs mt-0.5">•</span>
+            <p class="text-slate-300 leading-relaxed text-xs">${b}</p>
+          </div>
+        `).join('');
+      } else {
+        bulletsContainer.classList.add('hidden');
+        bulletsContainer.innerHTML = '';
+      }
+
+      const dotsContainer = document.getElementById('guideStepDots');
+      dotsContainer.innerHTML = guideSteps.map((_, i) => `
+        <button onclick="renderGuideStep(${i})" title="Go to step ${i + 1}" class="h-1.5 rounded-full transition-all ${
+          i === currentGuideStep
+            ? 'w-6 bg-amber-400 shadow-sm shadow-amber-400/50'
+            : 'w-2 bg-slate-700 hover:bg-slate-600'
+        }"></button>
+      `).join('');
+
+      const prevBtn = document.getElementById('guidePrevBtn');
+      const nextBtn = document.getElementById('guideNextBtn');
+
+      prevBtn.disabled = (currentGuideStep === 0);
+
+      if (currentGuideStep === guideSteps.length - 1) {
+        nextBtn.innerHTML = `<span>Done</span> <span class="text-slate-950 font-black">✓</span>`;
+        nextBtn.className = "px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs transition shadow-md active:scale-95 flex items-center gap-1";
+      } else {
+        nextBtn.innerHTML = `<span>Next</span> <span>→</span>`;
+        nextBtn.className = "px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition shadow-md active:scale-95 flex items-center gap-1";
+      }
+    }
+
+    function prevGuideStep() {
+      if (currentGuideStep > 0) {
+        renderGuideStep(currentGuideStep - 1);
+      }
+    }
+
+    function nextGuideStep() {
+      if (currentGuideStep < guideSteps.length - 1) {
+        renderGuideStep(currentGuideStep + 1);
+      } else {
+        closeAppOverviewModal();
+      }
+    }
+
+    function openAppOverviewModal() {
+      const modal = document.getElementById('appOverviewModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        renderGuideStep(0);
+      }
+    }
+
+    function closeAppOverviewModal() {
+      const modal = document.getElementById('appOverviewModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function checkAndPromptIdentity() {
+      if (hasPromptedIdentity) return;
+      
+      const players = gameState.players || [];
+      let matched = null;
+
+      if (myPlayerId) {
+        matched = players.find(p => p.id === myPlayerId);
+      }
+      if (!matched && myPlayerName) {
+        matched = players.find(p => p.name.toLowerCase() === myPlayerName.toLowerCase());
+      }
+
+      if (matched) {
+        myPlayerId = matched.id;
+        myPlayerName = matched.name;
+        try {
+          localStorage.setItem(`flip7_player_id_${roomId}`, myPlayerId);
+          localStorage.setItem(`flip7_player_identity_${roomId}`, myPlayerName);
+        } catch(e) {}
+        updateIdentityUI();
+        const myIdx = players.findIndex(p => p.id === myPlayerId);
+        if (myIdx !== -1) activePlayerIdx = myIdx;
+        hasPromptedIdentity = true;
+        renderPlayerSelector();
+        renderScoreboard();
+      } else {
+        hasPromptedIdentity = true;
+        openIdentityModal(false);
+      }
+    }
+
+    function openIdentityModal(allowCancel = true) {
+      const modal = document.getElementById('playerIdentityModal');
+      const closeBtn = document.getElementById('identityModalCloseBtn');
+      const existingContainer = document.getElementById('existingPlayersContainer');
+      const existingList = document.getElementById('existingPlayersList');
+      const divider = document.getElementById('identityDivider');
+      const addNewContainer = document.getElementById('addNewPlayerContainer');
+      const input = document.getElementById('identityNameInput');
+
+      input.value = '';
+      if (allowCancel) {
+        closeBtn.classList.remove('hidden');
+      } else {
+        closeBtn.classList.add('hidden');
+      }
+
+      const players = gameState.players || [];
+      if (players.length > 0) {
+        existingContainer.classList.remove('hidden');
+        divider.classList.remove('hidden');
+        existingList.innerHTML = '';
+
+        players.forEach(p => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          const isCurrent = Boolean(
+            (myPlayerId && p.id === myPlayerId) ||
+            (!myPlayerId && myPlayerName && p.name.toLowerCase() === myPlayerName.toLowerCase())
+          );
+          btn.className = `p-2.5 rounded-xl border text-left text-xs font-bold transition flex items-center justify-between active:scale-95 ${
+            isCurrent
+              ? 'bg-amber-500/20 border-amber-400 text-amber-300'
+              : 'bg-slate-700/80 hover:bg-slate-700 border-slate-600 text-slate-100 hover:border-amber-400/60'
+          }`;
+          btn.innerHTML = `
+            <span class="truncate">${escapeHtml(p.name)}</span>
+            ${isCurrent ? '<span class="text-[10px] text-amber-400">Current</span>' : '<span class="text-[10px] text-slate-400">Select</span>'}
+          `;
+          btn.onclick = () => selectMyIdentity(p.name, p.id);
+          existingList.appendChild(btn);
+        });
+      } else {
+        existingContainer.classList.add('hidden');
+        divider.classList.add('hidden');
+      }
+
+      if (players.length >= 10) {
+        addNewContainer.classList.add('hidden');
+      } else {
+        addNewContainer.classList.remove('hidden');
+      }
+
+      modal.classList.remove('hidden');
+      setTimeout(() => input.focus(), 80);
+    }
+
+    function closeIdentityModal() {
+      const modal = document.getElementById('playerIdentityModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function selectMyIdentity(name, id = null) {
+      myPlayerName = name;
+      if (id) {
+        myPlayerId = id;
+      } else {
+        const found = (gameState.players || []).find(p => p.name.toLowerCase() === name.toLowerCase());
+        if (found) myPlayerId = found.id;
+      }
+
+      try {
+        if (myPlayerId) localStorage.setItem(`flip7_player_id_${roomId}`, myPlayerId);
+        localStorage.setItem(`flip7_player_identity_${roomId}`, name);
+      } catch(e) {}
+
+      updateIdentityUI();
+      const players = gameState.players || [];
+      let idx = -1;
+      if (myPlayerId) idx = players.findIndex(p => p.id === myPlayerId);
+      if (idx === -1) idx = players.findIndex(p => p.name === name);
+      if (idx !== -1) {
+        activePlayerIdx = idx;
+      }
+
+      closeIdentityModal();
+      renderScoreboard();
+      renderPlayerSelector();
+    }
+
+    async function submitNewIdentity() {
+      const input = document.getElementById('identityNameInput');
+      const rawName = input ? input.value : '';
+      const trimmed = (rawName || '').trim();
+
+      if (!trimmed) {
+        return showToast("Please enter a player name.", "error");
+      }
+
+      if (!gameState.players) gameState.players = [];
+
+      const existing = gameState.players.find(p => p.name.toLowerCase() === trimmed.toLowerCase());
+      if (existing) {
+        await selectMyIdentity(existing.name, existing.id);
+        return;
+      }
+
+      if (gameState.players.length >= 10) {
+        return showToast("Maximum 10 players supported.", "error");
+      }
+
+      const newPlayer = { id: generatePlayerId(), name: trimmed, rounds: [] };
+      gameState.players.push(newPlayer);
+      activePlayerIdx = gameState.players.length - 1;
+      await syncState();
+
+      await selectMyIdentity(newPlayer.name, newPlayer.id);
+    }
+
+    async function promptAddPlayer() {
+      if ((gameState.players || []).length >= 10) {
+        return showToast("Maximum 10 players supported.", "error");
+      }
+      const name = await showModal({
+        title: "Add Player",
+        message: "Enter the new player's name:",
+        showInput: true,
+        defaultValue: "",
+        confirmText: "Add Player"
+      });
+
+      if (!name || !name.trim()) return;
+      const cleanName = name.trim();
+      if (!gameState.players) gameState.players = [];
+      const newPlayer = { id: generatePlayerId(), name: cleanName, rounds: [] };
+      gameState.players.push(newPlayer);
+
+      if (!myPlayerId && !myPlayerName) {
+        myPlayerId = newPlayer.id;
+        myPlayerName = cleanName;
+        try {
+          localStorage.setItem(`flip7_player_id_${roomId}`, myPlayerId);
+          localStorage.setItem(`flip7_player_identity_${roomId}`, myPlayerName);
+        } catch(e) {}
+        updateIdentityUI();
+      }
+
+      if (myPlayerId) {
+        const myIdx = gameState.players.findIndex(p => p.id === myPlayerId);
+        activePlayerIdx = (myIdx !== -1) ? myIdx : 0;
+      } else if (myPlayerName) {
+        const myIdx = gameState.players.findIndex(p => p.name.trim().toLowerCase() === myPlayerName.trim().toLowerCase());
+        activePlayerIdx = (myIdx !== -1) ? myIdx : 0;
+      } else {
+        activePlayerIdx = 0;
+      }
+
+      hideOtherPlayerUndoBtn();
+      renderScoreboard();
+      syncState();
+      showToast(`Added ${cleanName}`, "success");
+    }
+
+    async function promptEditPlayerName(idx) {
+      if (!gameState.players || !gameState.players[idx]) return;
+      const player = gameState.players[idx];
+      const currentName = player.name;
+      const targetId = player.id;
+
+      const newName = await showModal({
+        title: "Rename Player",
+        message: `Enter new name for "${currentName}":`,
+        showInput: true,
+        defaultValue: currentName,
+        confirmText: "Save Name"
+      });
+
+      if (newName === null) return;
+      const trimmed = newName.trim();
+      if (!trimmed) {
+        return showToast("Player name cannot be empty.", "error");
+      }
+
+      player.name = trimmed;
+
+      if ((myPlayerId && targetId === myPlayerId) || (!myPlayerId && myPlayerName && myPlayerName.toLowerCase() === currentName.toLowerCase())) {
+        myPlayerName = trimmed;
+        myPlayerId = targetId;
+        try {
+          localStorage.setItem(`flip7_player_id_${roomId}`, myPlayerId);
+          localStorage.setItem(`flip7_player_identity_${roomId}`, trimmed);
+        } catch(e) {}
+        updateIdentityUI();
+      }
+
+      renderScoreboard();
+      syncState();
+      showToast(`Renamed to ${trimmed}`, "success");
+    }
+
+    async function promptRemovePlayer(idx) {
+      if (!gameState.players || !gameState.players[idx]) return;
+      const player = gameState.players[idx];
+      const confirmed = await showModal({
+        title: "Remove Player",
+        message: `Are you sure you want to remove "${player.name}" from this game?`,
+        confirmText: "Remove",
+        cancelText: "Keep"
+      });
+
+      if (confirmed) {
+        if ((myPlayerId && player.id === myPlayerId) || (!myPlayerId && myPlayerName && myPlayerName.toLowerCase() === player.name.toLowerCase())) {
+          myPlayerId = null;
+          myPlayerName = null;
+          try {
+            localStorage.removeItem(`flip7_player_id_${roomId}`);
+            localStorage.removeItem(`flip7_player_identity_${roomId}`);
+          } catch(e) {}
+          updateIdentityUI();
+        }
+        gameState.players.splice(idx, 1);
+        if (myPlayerId && gameState.players.length > 0) {
+          const myIdx = gameState.players.findIndex(p => p.id === myPlayerId);
+          activePlayerIdx = (myIdx !== -1) ? myIdx : 0;
+        } else if (myPlayerName && gameState.players.length > 0) {
+          const myIdx = gameState.players.findIndex(p => p.name.trim().toLowerCase() === myPlayerName.trim().toLowerCase());
+          activePlayerIdx = (myIdx !== -1) ? myIdx : 0;
+        } else {
+          activePlayerIdx = gameState.players.length > 0 ? 0 : null;
+        }
+        renderScoreboard();
+        syncState();
+        showToast(`Removed ${player.name}`, "info");
+      }
+    }
+
+    async function promptResetGame() {
+      const confirmed = await showModal({
+        title: "Reset All Scores",
+        message: "Reset all player round history and scores back to 0 for this room?",
+        confirmText: "Reset Scores",
+        cancelText: "Cancel"
+      });
+
+      if (confirmed) {
+        gameState.players.forEach(p => p.rounds = []);
+        celebratedWinnerId = null;
+        dismissAmazeBanner();
+        renderScoreboard();
+        syncState();
+        showToast("Match scores reset to 0", "info");
+      }
+    }
+
+    async function commitRoundScore() {
+      const pIdx = getSelectedPlayerIndex();
+      if (pIdx === null || isNaN(pIdx)) {
+        return showToast("Please select or add a player before adding a score.", "error");
+      }
+      const localTargetPlayer = gameState.players[pIdx];
+      if (!localTargetPlayer) return;
+      const targetPlayerId = localTargetPlayer.id;
+      const targetPlayerName = localTargetPlayer.name;
+
+      const isScoringForOther = Boolean(
+        (myPlayerId && targetPlayerId !== myPlayerId) ||
+        (!myPlayerId && myPlayerName && targetPlayerName.toLowerCase() !== myPlayerName.toLowerCase())
+      );
+      const score = parseInt(document.getElementById('calculatedTotal').innerText, 10);
+
+      // Race condition protection: fetch fresh remote state before committing
+      try {
+        const res = await fetch(DB_URL, { cache: 'no-store' });
+        if (res.ok) {
+          const remote = await res.json();
+          if (remote && remote.players) {
+            gameState = remote;
+            sanitizeGameState(gameState);
+          }
+        }
+      } catch (e) {}
+
+      let targetPlayer = gameState.players.find(p => p.id === targetPlayerId);
+      if (!targetPlayer) {
+        targetPlayer = gameState.players.find(p => p.name.toLowerCase() === targetPlayerName.toLowerCase());
+      }
+      if (!targetPlayer) {
+        targetPlayer = gameState.players[pIdx] || localTargetPlayer;
+      }
+
+      if (!targetPlayer.rounds) targetPlayer.rounds = [];
+      targetPlayer.rounds.push(score);
+
+      const targetIdx = gameState.players.indexOf(targetPlayer);
+      renderScoreboard();
+      await syncState();
+
+      if (isScoringForOther) {
+        lastOtherPlayerCommit = { playerIdx: targetIdx, playerId: targetPlayer.id, playerName: targetPlayer.name, score };
+        showOtherPlayerScorePopup(score, targetPlayer.name);
+        showOtherPlayerUndoBtn(score, targetPlayer.name);
+      } else {
+        hideOtherPlayerUndoBtn();
+        showToast(`+${score} pts added to ${targetPlayer.name}`, "success");
+      }
+
+      // Reset calculator inputs
+      if (scoringInputMode === 'manual') {
+        document.getElementById('manualScoreInput').value = '';
+        updateManualScore();
+      } else {
+        currentSelectedNumbers = [];
+        hasSecond13 = false;
+        const btnLucky13 = document.getElementById('btnLucky13');
+        if (btnLucky13) {
+          btnLucky13.className = "w-full py-1.5 bg-slate-700 hover:bg-slate-600 text-xs font-bold text-slate-300 rounded-lg border border-slate-600 transition active:scale-98";
+          btnLucky13.innerText = "[+] Add 2nd \"Lucky 13\" Card (+13)";
+        }
+        renderNumberButtons();
+        document.getElementById('selectedNumbers').innerText = 'None';
+        document.getElementById('cardCount').innerText = '0';
+        document.getElementById('modDiv2').checked = false;
+        document.getElementById('modX2').checked = false;
+        document.getElementById('vengeanceNegativeMod').value = "0";
+        document.getElementById('standardPositiveMod').value = "0";
+        document.getElementById('flip7Bonus').checked = false;
+        document.getElementById('bustCheck').checked = false;
+        calculateScore();
+      }
+
+      // Default back to "You" on this device
+      if (myPlayerId && gameState.players) {
+        const myIdx = gameState.players.findIndex(p => p.id === myPlayerId);
+        if (myIdx !== -1) activePlayerIdx = myIdx;
+      } else if (myPlayerName && gameState.players) {
+        const myIdx = gameState.players.findIndex(p => p.name.toLowerCase() === myPlayerName.toLowerCase());
+        if (myIdx !== -1) activePlayerIdx = myIdx;
+      }
+
+      renderPlayerSelector();
+      renderScoreboard();
+    }
+
+    function showOtherPlayerScorePopup(score, playerName) {
+      const popup = document.getElementById('otherPlayerScorePopup');
+      const text = document.getElementById('otherPlayerScorePopupText');
+      if (!popup || !text) return;
+
+      if (otherPlayerBannerTimeout) {
+        clearTimeout(otherPlayerBannerTimeout);
+        otherPlayerBannerTimeout = null;
+      }
+      if (otherPlayerDismissTimeout) {
+        clearTimeout(otherPlayerDismissTimeout);
+        otherPlayerDismissTimeout = null;
+      }
+
+      text.innerText = `You added ${score} points to ${playerName}`;
+      popup.classList.remove('hidden');
+
+      requestAnimationFrame(() => {
+        popup.classList.remove('scale-95', 'opacity-0');
+        popup.classList.add('scale-100', 'opacity-100');
+      });
+
+      otherPlayerBannerTimeout = setTimeout(() => {
+        dismissOtherPlayerScorePopup();
+      }, 3000);
+    }
+
+    function dismissOtherPlayerScorePopup() {
+      const popup = document.getElementById('otherPlayerScorePopup');
+      if (!popup) return;
+      if (otherPlayerBannerTimeout) {
+        clearTimeout(otherPlayerBannerTimeout);
+        otherPlayerBannerTimeout = null;
+      }
+      popup.classList.remove('scale-100', 'opacity-100');
+      popup.classList.add('scale-95', 'opacity-0');
+      otherPlayerDismissTimeout = setTimeout(() => {
+        popup.classList.add('hidden');
+        otherPlayerDismissTimeout = null;
+      }, 300);
+    }
+
+    function showOtherPlayerUndoBtn(score, playerName) {
+      const undoBtn = document.getElementById('otherPlayerUndoBtn');
+      const undoLabel = document.getElementById('otherPlayerUndoLabel');
+      if (undoBtn) {
+        if (undoLabel) undoLabel.innerText = `(${score} to ${playerName})`;
+        undoBtn.classList.remove('hidden');
+        undoBtn.classList.add('inline-flex');
+      }
+    }
+
+    function hideOtherPlayerUndoBtn() {
+      const undoBtn = document.getElementById('otherPlayerUndoBtn');
+      if (undoBtn) {
+        undoBtn.classList.add('hidden');
+        undoBtn.classList.remove('inline-flex');
+      }
+    }
+
+    function undoOtherPlayerScore() {
+      if (!lastOtherPlayerCommit) return;
+      const { playerId, playerName, score } = lastOtherPlayerCommit;
+      let player = null;
+      if (playerId) {
+        player = gameState.players.find(p => p.id === playerId);
+      }
+      if (!player && playerName) {
+        player = gameState.players.find(p => p.name.trim().toLowerCase() === playerName.trim().toLowerCase());
+      }
+
+      if (player && player.rounds && player.rounds.length > 0) {
+        const lastScore = player.rounds[player.rounds.length - 1];
+        if (lastScore === score) {
+          player.rounds.pop();
+        } else {
+          const idxToRemove = player.rounds.lastIndexOf(score);
+          if (idxToRemove !== -1) player.rounds.splice(idxToRemove, 1);
+          else player.rounds.pop();
+        }
+        renderScoreboard();
+        syncState();
+        showToast(`Undid ${score} points for ${player.name}`, "info");
+      }
+      lastOtherPlayerCommit = null;
+      hideOtherPlayerUndoBtn();
+      dismissOtherPlayerScorePopup();
+    }
+
+    async function removeLastRound(pIdx) {
+      if (!gameState.players || !gameState.players[pIdx]) return;
+      const player = gameState.players[pIdx];
+      if (!player.rounds || player.rounds.length === 0) {
+        return showToast(`No rounds logged yet for ${player.name}`, "info");
+      }
+      const lastScore = player.rounds[player.rounds.length - 1];
+
+      const confirmed = await showModal({
+        title: "Undo Last Round",
+        message: `Remove the last score of ${lastScore} pts from "${player.name}"?`,
+        confirmText: "Undo Score",
+        cancelText: "Cancel"
+      });
+
+      if (confirmed) {
+        const removed = player.rounds.pop();
+        renderScoreboard();
+        syncState();
+        showToast(`Removed last round (${removed} pts) from ${player.name}`, "info");
+      }
+    }
+
+    function openRoundHistoryModal(idx) {
+      if (!gameState.players || !gameState.players[idx]) return;
+      activeHistoryPlayerIdx = idx;
+      const player = gameState.players[idx];
+
+      document.getElementById('historyPlayerName').innerText = player.name;
+      const total = (player.rounds || []).reduce((a, b) => a + b, 0);
+      document.getElementById('historyTotalScore').innerText = total;
+      document.getElementById('historyAddRoundInput').value = '';
+
+      renderHistoryRoundsList(player);
+
+      const modal = document.getElementById('roundHistoryModal');
+      modal.classList.remove('hidden');
+    }
+
+    function renderHistoryRoundsList(player) {
+      const listContainer = document.getElementById('historyRoundsList');
+      listContainer.innerHTML = '';
+
+      const rounds = player.rounds || [];
+      if (rounds.length === 0) {
+        listContainer.innerHTML = '<div class="text-xs text-slate-500 italic p-2">No rounds recorded yet.</div>';
+        return;
+      }
+
+      rounds.forEach((pts, rIdx) => {
+        const row = document.createElement('div');
+        row.className = "flex items-center justify-between bg-slate-900/80 px-3 py-2 rounded-lg border border-slate-700/60 text-xs";
+        row.innerHTML = `
+          <span class="text-slate-300 font-medium">Round ${rIdx + 1}: <span class="font-mono font-bold text-amber-300">${pts} pts</span></span>
+          <button onclick="deleteSpecificRound(${rIdx})" class="text-red-400 hover:text-red-300 font-bold px-2 py-0.5 rounded hover:bg-slate-800 transition" title="Delete this round">
+            ✕ Delete
+          </button>
+        `;
+        listContainer.appendChild(row);
+      });
+    }
+
+    function closeRoundHistoryModal() {
+      const modal = document.getElementById('roundHistoryModal');
+      if (modal) modal.classList.add('hidden');
+      activeHistoryPlayerIdx = null;
+    }
+
+    async function deleteSpecificRound(rIdx) {
+      if (activeHistoryPlayerIdx === null || !gameState.players[activeHistoryPlayerIdx]) return;
+      const player = gameState.players[activeHistoryPlayerIdx];
+      const pts = player.rounds[rIdx];
+
+      const confirmed = await showModal({
+        title: "Delete Round",
+        message: `Delete Round ${rIdx + 1} (${pts} pts) from ${player.name}?`,
+        confirmText: "Delete",
+        cancelText: "Keep"
+      });
+
+      if (confirmed) {
+        player.rounds.splice(rIdx, 1);
+        renderHistoryRoundsList(player);
+        const total = player.rounds.reduce((a, b) => a + b, 0);
+        document.getElementById('historyTotalScore').innerText = total;
+        renderScoreboard();
+        syncState();
+        showToast(`Removed Round ${rIdx + 1}`, "info");
+      }
+    }
+
+    async function submitRecoveredRound() {
+      if (activeHistoryPlayerIdx === null || !gameState.players[activeHistoryPlayerIdx]) return;
+      const input = document.getElementById('historyAddRoundInput');
+      const val = parseInt(input.value, 10);
+      if (isNaN(val)) {
+        return showToast("Please enter a valid number of points.", "error");
+      }
+
+      const player = gameState.players[activeHistoryPlayerIdx];
+      if (!player.rounds) player.rounds = [];
+      player.rounds.push(val);
+      input.value = '';
+
+      renderHistoryRoundsList(player);
+      const total = player.rounds.reduce((a, b) => a + b, 0);
+      document.getElementById('historyTotalScore').innerText = total;
+      renderScoreboard();
+      syncState();
+      showToast(`Added ${val} pts to ${player.name}`, "success");
+    }
+
+    function createNewRoom() {
+      const newRoom = 'f7_' + Math.random().toString(36).substring(2, 8).toLowerCase();
+      try {
+        if (window.location.protocol !== 'blob:' && window.location.protocol !== 'about:' && window.location.pathname) {
+          const targetUrl = new URL(window.location.href);
+          targetUrl.searchParams.set('room', newRoom);
+          window.location.href = targetUrl.toString();
+          return;
+        }
+      } catch (e) {}
+
+      roomId = newRoom;
+      STORAGE_KEY = `flip7_cache_${roomId}`;
+      DB_URL = `${FIREBASE_BASE_URL}/rooms/${roomId}.json`;
+      document.getElementById('roomDisplay').innerText = roomId.toUpperCase();
+      myPlayerId = null;
+      myPlayerName = null;
+      hasPromptedIdentity = false;
+      try {
+        localStorage.removeItem(`flip7_player_id_${roomId}`);
+        localStorage.removeItem(`flip7_player_identity_${roomId}`);
+      } catch(e) {}
+      updateIdentityUI();
+      gameState = {
+        players: [],
+        mode: 'standard',
+        targetScore: 200,
+        whistlerRules: false,
+        timestamp: Date.now()
+      };
+      celebratedWinnerId = null;
+      dismissAmazeBanner();
+      saveLocal();
+      applyModeUI();
+      renderNumberButtons();
+      renderScoreboard();
+      syncState();
+      checkAndPromptIdentity();
+      showToast(`Created new room: ${roomId.toUpperCase()}`, "success");
+    }
+
+    function copyShareLink() {
+      let shareUrl = window.location.href;
+      try {
+        const parsed = new URL(window.location.href);
+        parsed.searchParams.set('room', roomId);
+        shareUrl = parsed.toString();
+      } catch (e) {}
+
+      const dummy = document.createElement('input');
+      document.body.appendChild(dummy);
+      dummy.value = shareUrl;
+      dummy.select();
+      document.execCommand('copy');
+      document.body.removeChild(dummy);
+      showToast("Room link copied to clipboard", "success");
+    }
+
+    // App Initialization
+    applyModeUI();
+    updateWhistlerUI();
+    initAgePreferences();
+    initAmazePreference();
+    updateIdentityUI();
+    renderNumberButtons();
+    renderScoreboard();
+    calculateScore();
+
+    // Start background sync with sequential polling
+    fetchRemoteState();
+    setupVisibilityOptimizedPolling();
+  </script>
+</body>
+</html>
