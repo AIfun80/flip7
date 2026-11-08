@@ -673,6 +673,9 @@
     let isPushing = false;
     let isFetching = false;
     let isCommittingScore = false;
+    let isDraggingPlayerRow = false;
+    let dragSourceIdx = null;
+    let dragOverIdx = null;
     let lastConnStatus = null;
     let pollTimeoutId = null;
     let activePlayerIdx = null;
@@ -1236,7 +1239,7 @@
     }
 
     async function fetchRemoteState(manual = false) {
-      if (isPushing || isFetching) return;
+      if (isPushing || isFetching || isDraggingPlayerRow) return;
       isFetching = true;
 
       const controller = new AbortController();
@@ -1459,36 +1462,79 @@
       calculateScore();
     }
 
-    async function movePlayer(idx, direction) {
+    async function reorderPlayer(fromIdx, toIdx) {
       if (!gameState.players || gameState.players.length < 2) return;
-      const targetIdx = idx + direction;
-      if (targetIdx < 0 || targetIdx >= gameState.players.length) return;
-      const movingPlayerId = gameState.players[idx].id;
+      if (fromIdx === null || toIdx === null || fromIdx === toIdx) return;
+      if (fromIdx < 0 || fromIdx >= gameState.players.length || toIdx < 0 || toIdx >= gameState.players.length) return;
+
+      const movingPlayerId = gameState.players[fromIdx].id;
       const selectedPlayerId = (activePlayerIdx !== null && gameState.players[activePlayerIdx])
         ? gameState.players[activePlayerIdx].id
         : null;
 
+      const roundCounts = gameState.players.map(p => (p.rounds || []).length);
+      const minRounds = Math.min(...roundCounts);
+      const currentDealerIdx = ((gameState.dealerOffset || 0) + minRounds) % gameState.players.length;
+      const currentDealerId = gameState.players[currentDealerIdx] ? gameState.players[currentDealerIdx].id : null;
+
       isPushing = true;
       await pullLatestRemoteState();
-      const curIdx = (gameState.players || []).findIndex(p => p.id === movingPlayerId);
-      const newIdx = curIdx + direction;
-      if (curIdx === -1 || newIdx < 0 || newIdx >= gameState.players.length) {
+
+      const curFromIdx = (gameState.players || []).findIndex(p => p.id === movingPlayerId);
+      if (curFromIdx === -1) {
         isPushing = false;
         renderScoreboard();
         return;
       }
 
-      const temp = gameState.players[curIdx];
-      gameState.players[curIdx] = gameState.players[newIdx];
-      gameState.players[newIdx] = temp;
+      const clampedToIdx = Math.max(0, Math.min(gameState.players.length - 1, toIdx));
+      const [movedPlayer] = gameState.players.splice(curFromIdx, 1);
+      gameState.players.splice(clampedToIdx, 0, movedPlayer);
 
       if (selectedPlayerId) {
         const updatedSelectedIdx = gameState.players.findIndex(p => p.id === selectedPlayerId);
         if (updatedSelectedIdx !== -1) activePlayerIdx = updatedSelectedIdx;
       }
 
+      if (currentDealerId) {
+        const newDealerIdx = gameState.players.findIndex(p => p.id === currentDealerId);
+        if (newDealerIdx !== -1) {
+          const n = gameState.players.length;
+          const updatedMinRounds = Math.min(...gameState.players.map(p => (p.rounds || []).length));
+          gameState.dealerOffset = ((newDealerIdx - (updatedMinRounds % n)) + n) % n;
+        }
+      }
+
       renderScoreboard();
       await syncState();
+    }
+
+    async function movePlayer(idx, direction) {
+      await reorderPlayer(idx, idx + direction);
+    }
+
+    function clearDragHighlights() {
+      const tbody = document.getElementById('playerTableBody');
+      if (!tbody) return;
+      tbody.querySelectorAll('tr[data-player-idx]').forEach(row => {
+        row.classList.remove('opacity-40', 'border-t-2', 'border-t-amber-400', 'border-b-2', 'border-b-amber-400');
+      });
+    }
+
+    function applyDragOverHighlight(targetIdx) {
+      const tbody = document.getElementById('playerTableBody');
+      if (!tbody) return;
+      tbody.querySelectorAll('tr[data-player-idx]').forEach(row => {
+        row.classList.remove('border-t-2', 'border-t-amber-400', 'border-b-2', 'border-b-amber-400');
+        const rIdx = parseInt(row.getAttribute('data-player-idx'), 10);
+        if (rIdx === targetIdx && rIdx !== dragSourceIdx) {
+          if (targetIdx < dragSourceIdx) {
+            row.classList.add('border-t-2', 'border-t-amber-400');
+          } else {
+            row.classList.add('border-b-2', 'border-b-amber-400');
+          }
+        }
+      });
     }
 
     async function setCurrentDealer(playerIdx) {
@@ -1847,11 +1893,55 @@
         );
 
         const tr = document.createElement('tr');
+        tr.setAttribute('data-player-idx', String(idx));
+        tr.draggable = (gameState.players.length > 1);
         tr.className = `transition-colors ${hasWon ? 'bg-amber-950/40 font-bold' : isMe ? 'bg-sky-950/25 border-l-2 border-l-sky-400' : isCurrentlyActive ? 'bg-slate-700/30' : 'hover:bg-slate-750'}`;
         
+        tr.ondragstart = (e) => {
+          isDraggingPlayerRow = true;
+          dragSourceIdx = idx;
+          dragOverIdx = idx;
+          if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(idx));
+          }
+          requestAnimationFrame(() => tr.classList.add('opacity-40'));
+        };
+
+        tr.ondragover = (e) => {
+          if (dragSourceIdx === null) return;
+          e.preventDefault();
+          if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+          if (dragOverIdx !== idx) {
+            dragOverIdx = idx;
+            applyDragOverHighlight(idx);
+          }
+        };
+
+        tr.ondrop = async (e) => {
+          e.preventDefault();
+          const fromIdx = dragSourceIdx;
+          const toIdx = idx;
+          isDraggingPlayerRow = false;
+          dragSourceIdx = null;
+          dragOverIdx = null;
+          clearDragHighlights();
+          if (fromIdx !== null && fromIdx !== toIdx) {
+            await reorderPlayer(fromIdx, toIdx);
+          }
+        };
+
+        tr.ondragend = () => {
+          isDraggingPlayerRow = false;
+          dragSourceIdx = null;
+          dragOverIdx = null;
+          clearDragHighlights();
+        };
+
         tr.innerHTML = `
           <td class="py-2.5 px-3">
             <div class="flex flex-wrap items-center gap-1.5">
+              ${gameState.players.length > 1 ? `<span class="drag-handle cursor-grab active:cursor-grabbing text-slate-500 hover:text-amber-400 px-1 py-0.5 select-none text-sm leading-none" style="touch-action: none;" title="Drag to reorder seating">⋮⋮</span>` : ''}
               ${isLeader ? '<span title="Current Leader" class="text-sm leading-none select-none">👑</span>' : ''}
               <button onclick="promptEditPlayerName(${idx})" class="${isMe ? 'text-base md:text-lg font-bold text-sky-200 hover:text-sky-300' : 'text-sm font-semibold text-slate-100 hover:text-amber-400'} text-left transition flex items-center gap-1.5 group" title="Rename player">
                 <span class="underline decoration-slate-600 group-hover:decoration-amber-400 underline-offset-4">${escapeHtml(p.name)}</span>
@@ -1879,11 +1969,7 @@
             </button>
           </td>
           <td class="py-2.5 px-3 text-center">
-            <div class="inline-flex items-center gap-1.5">
-              <div class="inline-flex items-center bg-slate-900/70 border border-slate-700/80 rounded px-1 py-0.5 gap-0.5" title="Adjust seating order for dealer rotation">
-                <button onclick="movePlayer(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} class="text-[11px] leading-none text-slate-400 hover:text-amber-300 disabled:opacity-25 disabled:pointer-events-none px-0.5 transition" title="Move seat up">↑</button>
-                <button onclick="movePlayer(${idx}, 1)" ${idx === gameState.players.length - 1 ? 'disabled' : ''} class="text-[11px] leading-none text-slate-400 hover:text-amber-300 disabled:opacity-25 disabled:pointer-events-none px-0.5 transition" title="Move seat down">↓</button>
-              </div>
+            <div class="inline-flex items-center gap-2">
               <button onclick="removeLastRound(${idx})" class="text-xs font-semibold text-amber-400 hover:text-amber-300 hover:underline" title="Undo last round score">
                 Undo
               </button>
@@ -1894,6 +1980,51 @@
             </div>
           </td>
         `;
+
+        const handleEl = tr.querySelector('.drag-handle');
+        if (handleEl) {
+          handleEl.addEventListener('touchstart', () => {
+            isDraggingPlayerRow = true;
+            dragSourceIdx = idx;
+            dragOverIdx = idx;
+            tr.classList.add('opacity-40');
+          }, { passive: true });
+
+          handleEl.addEventListener('touchmove', (e) => {
+            if (dragSourceIdx === null || !e.touches || !e.touches[0]) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            const elUnderFinger = document.elementFromPoint(touch.clientX, touch.clientY);
+            const targetRow = elUnderFinger ? elUnderFinger.closest('tr[data-player-idx]') : null;
+            if (targetRow) {
+              const targetIdx = parseInt(targetRow.getAttribute('data-player-idx'), 10);
+              if (!isNaN(targetIdx) && targetIdx !== dragOverIdx) {
+                dragOverIdx = targetIdx;
+                applyDragOverHighlight(targetIdx);
+              }
+            }
+          }, { passive: false });
+
+          handleEl.addEventListener('touchend', async () => {
+            const fromIdx = dragSourceIdx;
+            const toIdx = dragOverIdx;
+            isDraggingPlayerRow = false;
+            dragSourceIdx = null;
+            dragOverIdx = null;
+            clearDragHighlights();
+            if (fromIdx !== null && toIdx !== null && fromIdx !== toIdx) {
+              await reorderPlayer(fromIdx, toIdx);
+            }
+          });
+
+          handleEl.addEventListener('touchcancel', () => {
+            isDraggingPlayerRow = false;
+            dragSourceIdx = null;
+            dragOverIdx = null;
+            clearDragHighlights();
+          });
+        }
+
         tbody.appendChild(tr);
       });
 
@@ -2014,18 +2145,19 @@
         `
       },
       {
-        title: "5. Seating Order, Dealer & Manual Score",
-        desc: "Use ↑/↓ in Standings to match your table seating so 🃏 Dealer rotates in order, or switch to Manual Score to type totals directly.",
+        title: "5. Drag Seating Order, Dealer & Manual Score",
+        desc: "Drag any player row by its ⋮⋮ handle to match your table seating so 🃏 Dealer rotates in order, or switch to Manual Score to type totals directly.",
         mockup: `
           <div class="space-y-2.5">
             <div class="bg-slate-800/90 border border-slate-700 p-2.5 rounded-xl flex items-center justify-between text-xs">
               <div class="flex items-center gap-1.5">
+                <span class="text-slate-400 font-bold">⋮⋮</span>
                 <span>👑</span>
                 <span class="font-bold text-sky-200">Chris</span>
                 <span class="px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-300 text-[10px] font-bold">🏆 2</span>
                 <span class="px-1.5 py-0.5 rounded bg-indigo-500/25 border border-indigo-400/50 text-indigo-200 text-[10px] font-bold">🃏 Dealer</span>
               </div>
-              <span class="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-slate-300 font-bold">↑ ↓</span>
+              <span class="text-[11px] text-amber-300 font-medium">Drag ⋮⋮ to reorder</span>
             </div>
             <div class="guide-highlight bg-slate-800/90 border border-amber-500/80 p-2.5 rounded-xl flex items-center justify-between gap-3">
               <span class="text-xs text-slate-300 font-semibold">Manual Score Tab:</span>
