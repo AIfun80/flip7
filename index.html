@@ -587,7 +587,7 @@
             <!-- Rendered by renderPlayerSelector() -->
           </div>
 
-          <button onclick="commitRoundScore()" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs rounded-lg transition whitespace-nowrap shadow-sm active:scale-95">
+          <button id="commitScoreBtn" onclick="commitRoundScore()" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:pointer-events-none text-slate-900 font-bold text-xs rounded-lg transition whitespace-nowrap shadow-sm active:scale-95">
             Add to Score
           </button>
 
@@ -607,7 +607,10 @@
     let roomId = null;
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      roomId = urlParams.get('room');
+      const rawRoom = urlParams.get('room');
+      if (rawRoom && /^[a-zA-Z0-9_-]{3,24}$/.test(rawRoom.trim())) {
+        roomId = rawRoom.trim().toLowerCase();
+      }
     } catch (e) {}
 
     if (!roomId) {
@@ -621,7 +624,7 @@
     document.getElementById('roomDisplay').innerText = roomId.toUpperCase();
 
     let STORAGE_KEY = `flip7_cache_${roomId}`;
-    let DB_URL = `${FIREBASE_BASE_URL}/rooms/${roomId}.json`;
+    let DB_URL = `${FIREBASE_BASE_URL}/rooms/${encodeURIComponent(roomId)}.json`;
 
     function generatePlayerId() {
       return 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
@@ -638,6 +641,9 @@
     function sanitizeGameState(state) {
       if (!state || typeof state !== 'object') return;
       if (!Array.isArray(state.players)) state.players = [];
+      if (state.mode !== 'vengeance' && state.mode !== 'standard') state.mode = 'standard';
+      if (!state.targetScore || isNaN(state.targetScore)) state.targetScore = 200;
+      state.whistlerRules = Boolean(state.whistlerRules);
       state.players.forEach(p => {
         if (!p.id) p.id = generatePlayerId();
         if (!Array.isArray(p.rounds)) p.rounds = [];
@@ -646,7 +652,7 @@
 
     try {
       const cached = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (cached && cached.players) {
+      if (cached && typeof cached === 'object' && cached.timestamp) {
         gameState = cached;
         sanitizeGameState(gameState);
       }
@@ -656,9 +662,12 @@
     let hasSecond13 = false;
     let isPushing = false;
     let isFetching = false;
+    let isCommittingScore = false;
+    let lastConnStatus = null;
     let pollTimeoutId = null;
     let activePlayerIdx = null;
     let activeHistoryPlayerIdx = null;
+    let activeHistoryPlayerId = null;
     let scoringInputMode = 'calc';
     let celebratedWinnerId = null;
     let myPlayerId = null;
@@ -1114,10 +1123,48 @@
       updateManualScore();
     }
 
+    function setConnectionStatus(state) {
+      if (lastConnStatus === state) return;
+      lastConnStatus = state;
+      const statusBadge = document.getElementById('connStatus');
+      if (!statusBadge) return;
+
+      if (state === 'synced') {
+        statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Live Synced</span>';
+        statusBadge.className = "flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-medium";
+      } else if (state === 'sync_error') {
+        statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span><span>Sync Error</span>';
+        statusBadge.className = "flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium";
+      } else if (state === 'network_error') {
+        statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span><span>Network Error</span>';
+        statusBadge.className = "flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium";
+      }
+    }
+
+    async function pullLatestRemoteState() {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      try {
+        const res = await fetch(DB_URL, {
+          cache: 'no-store',
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const remote = await res.json();
+          if (remote && typeof remote === 'object' && remote.timestamp) {
+            sanitizeGameState(remote);
+            gameState = remote;
+          }
+        }
+      } catch (e) {
+        clearTimeout(timeoutId);
+      }
+    }
+
     async function fetchRemoteState(manual = false) {
       if (isPushing || isFetching) return;
       isFetching = true;
-      const statusBadge = document.getElementById('connStatus');
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
@@ -1131,7 +1178,7 @@
 
         if (res.ok) {
           const remote = await res.json();
-          if (remote && remote.timestamp && remote.timestamp > gameState.timestamp) {
+          if (!isPushing && remote && remote.timestamp && remote.timestamp > gameState.timestamp) {
             gameState = remote;
             sanitizeGameState(gameState);
             saveLocal();
@@ -1142,17 +1189,14 @@
             if (scoringInputMode === 'calc') calculateScore();
           }
           checkAndPromptIdentity();
-          statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Live Synced</span>';
-          statusBadge.className = "flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-medium";
+          setConnectionStatus('synced');
           if (manual) showToast("Scoreboard synced with cloud!", "success");
         } else {
-          statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span><span>Sync Error</span>';
-          statusBadge.className = "flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium";
+          setConnectionStatus('sync_error');
         }
       } catch (e) {
         clearTimeout(timeoutId);
-        statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span><span>Network Error</span>';
-        statusBadge.className = "flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium";
+        setConnectionStatus('network_error');
       } finally {
         isFetching = false;
       }
@@ -1168,14 +1212,20 @@
       const timeoutId = setTimeout(() => controller.abort(), 4000);
 
       try {
-        await fetch(DB_URL, {
+        const res = await fetch(DB_URL, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(gameState),
           signal: controller.signal
         });
+        if (res.ok) {
+          setConnectionStatus('synced');
+        } else {
+          setConnectionStatus('sync_error');
+        }
       } catch (e) {
         console.error("Sync error:", e);
+        setConnectionStatus('network_error');
       } finally {
         clearTimeout(timeoutId);
         isPushing = false;
@@ -1556,12 +1606,14 @@
       }
 
       let activeWinner = null;
+      let highestWinningScore = -Infinity;
 
       gameState.players.forEach((p, idx) => {
         const total = (p.rounds || []).reduce((a, b) => a + b, 0);
         const hasWon = total >= target;
-        if (hasWon && !activeWinner) {
-          activeWinner = p.name;
+        if (hasWon && total > highestWinningScore) {
+          highestWinningScore = total;
+          activeWinner = p;
         }
 
         const isCurrentlyActive = (activePlayerIdx === idx);
@@ -1612,9 +1664,9 @@
         tbody.appendChild(tr);
       });
 
-      if (activeWinner && celebratedWinnerId !== activeWinner) {
-        celebratedWinnerId = activeWinner;
-        triggerAmazeCelebration(activeWinner);
+      if (activeWinner && celebratedWinnerId !== activeWinner.id) {
+        celebratedWinnerId = activeWinner.id;
+        triggerAmazeCelebration(activeWinner.name);
       } else if (!activeWinner) {
         celebratedWinnerId = null;
       }
@@ -1959,15 +2011,19 @@
         return showToast("Please enter a player name.", "error");
       }
 
+      isPushing = true;
+      await pullLatestRemoteState();
       if (!gameState.players) gameState.players = [];
 
       const existing = gameState.players.find(p => p.name.toLowerCase() === trimmed.toLowerCase());
       if (existing) {
+        isPushing = false;
         await selectMyIdentity(existing.name, existing.id);
         return;
       }
 
       if (gameState.players.length >= 10) {
+        isPushing = false;
         return showToast("Maximum 10 players supported.", "error");
       }
 
@@ -1993,7 +2049,16 @@
 
       if (!name || !name.trim()) return;
       const cleanName = name.trim();
+
+      isPushing = true;
+      await pullLatestRemoteState();
       if (!gameState.players) gameState.players = [];
+      if (gameState.players.length >= 10) {
+        isPushing = false;
+        renderScoreboard();
+        return showToast("Maximum 10 players supported.", "error");
+      }
+
       const newPlayer = { id: generatePlayerId(), name: cleanName, rounds: [] };
       gameState.players.push(newPlayer);
 
@@ -2019,7 +2084,7 @@
 
       hideOtherPlayerUndoBtn();
       renderScoreboard();
-      syncState();
+      await syncState();
       showToast(`Added ${cleanName}`, "success");
     }
 
@@ -2043,7 +2108,14 @@
         return showToast("Player name cannot be empty.", "error");
       }
 
-      player.name = trimmed;
+      isPushing = true;
+      await pullLatestRemoteState();
+      const targetPlayer = (gameState.players || []).find(p => p.id === targetId) || gameState.players[idx];
+      if (!targetPlayer) {
+        isPushing = false;
+        return;
+      }
+      targetPlayer.name = trimmed;
 
       if ((myPlayerId && targetId === myPlayerId) || (!myPlayerId && myPlayerName && myPlayerName.toLowerCase() === currentName.toLowerCase())) {
         myPlayerName = trimmed;
@@ -2056,22 +2128,26 @@
       }
 
       renderScoreboard();
-      syncState();
+      await syncState();
       showToast(`Renamed to ${trimmed}`, "success");
     }
 
     async function promptRemovePlayer(idx) {
       if (!gameState.players || !gameState.players[idx]) return;
       const player = gameState.players[idx];
+      const targetId = player.id;
+      const targetName = player.name;
       const confirmed = await showModal({
         title: "Remove Player",
-        message: `Are you sure you want to remove "${player.name}" from this game?`,
+        message: `Are you sure you want to remove "${targetName}" from this game?`,
         confirmText: "Remove",
         cancelText: "Keep"
       });
 
       if (confirmed) {
-        if ((myPlayerId && player.id === myPlayerId) || (!myPlayerId && myPlayerName && myPlayerName.toLowerCase() === player.name.toLowerCase())) {
+        isPushing = true;
+        await pullLatestRemoteState();
+        if ((myPlayerId && targetId === myPlayerId) || (!myPlayerId && myPlayerName && myPlayerName.toLowerCase() === targetName.toLowerCase())) {
           myPlayerId = null;
           myPlayerName = null;
           try {
@@ -2080,7 +2156,12 @@
           } catch(e) {}
           updateIdentityUI();
         }
-        gameState.players.splice(idx, 1);
+        const removeIdx = (gameState.players || []).findIndex(p => p.id === targetId);
+        if (removeIdx !== -1) {
+          gameState.players.splice(removeIdx, 1);
+        } else if (gameState.players[idx] && gameState.players[idx].name === targetName) {
+          gameState.players.splice(idx, 1);
+        }
         if (myPlayerId && gameState.players.length > 0) {
           const myIdx = gameState.players.findIndex(p => p.id === myPlayerId);
           activePlayerIdx = (myIdx !== -1) ? myIdx : 0;
@@ -2091,8 +2172,8 @@
           activePlayerIdx = gameState.players.length > 0 ? 0 : null;
         }
         renderScoreboard();
-        syncState();
-        showToast(`Removed ${player.name}`, "info");
+        await syncState();
+        showToast(`Removed ${targetName}`, "info");
       }
     }
 
@@ -2105,16 +2186,19 @@
       });
 
       if (confirmed) {
+        isPushing = true;
+        await pullLatestRemoteState();
         gameState.players.forEach(p => p.rounds = []);
         celebratedWinnerId = null;
         dismissAmazeBanner();
         renderScoreboard();
-        syncState();
+        await syncState();
         showToast("Match scores reset to 0", "info");
       }
     }
 
     async function commitRoundScore() {
+      if (isCommittingScore) return;
       const pIdx = getSelectedPlayerIndex();
       if (pIdx === null || isNaN(pIdx)) {
         return showToast("Please select or add a player before adding a score.", "error");
@@ -2130,77 +2214,82 @@
       );
       const score = parseInt(document.getElementById('calculatedTotal').innerText, 10);
 
-      // Race condition protection: fetch fresh remote state before committing
+      isCommittingScore = true;
+      isPushing = true;
+      const commitBtn = document.getElementById('commitScoreBtn');
+      if (commitBtn) commitBtn.disabled = true;
+
       try {
-        const res = await fetch(DB_URL, { cache: 'no-store' });
-        if (res.ok) {
-          const remote = await res.json();
-          if (remote && remote.players) {
-            gameState = remote;
-            sanitizeGameState(gameState);
+        // Race condition protection: fetch fresh remote state before committing
+        await pullLatestRemoteState();
+
+        let targetPlayer = gameState.players.find(p => p.id === targetPlayerId);
+        if (!targetPlayer) {
+          targetPlayer = gameState.players.find(p => p.name.toLowerCase() === targetPlayerName.toLowerCase());
+        }
+        if (!targetPlayer) {
+          targetPlayer = gameState.players[pIdx] || localTargetPlayer;
+          if (!gameState.players.includes(targetPlayer)) {
+            gameState.players.push(targetPlayer);
           }
         }
-      } catch (e) {}
 
-      let targetPlayer = gameState.players.find(p => p.id === targetPlayerId);
-      if (!targetPlayer) {
-        targetPlayer = gameState.players.find(p => p.name.toLowerCase() === targetPlayerName.toLowerCase());
-      }
-      if (!targetPlayer) {
-        targetPlayer = gameState.players[pIdx] || localTargetPlayer;
-      }
+        if (!targetPlayer.rounds) targetPlayer.rounds = [];
+        targetPlayer.rounds.push(score);
 
-      if (!targetPlayer.rounds) targetPlayer.rounds = [];
-      targetPlayer.rounds.push(score);
+        const targetIdx = gameState.players.indexOf(targetPlayer);
+        renderScoreboard();
+        await syncState();
 
-      const targetIdx = gameState.players.indexOf(targetPlayer);
-      renderScoreboard();
-      await syncState();
-
-      if (isScoringForOther) {
-        lastOtherPlayerCommit = { playerIdx: targetIdx, playerId: targetPlayer.id, playerName: targetPlayer.name, score };
-        showOtherPlayerScorePopup(score, targetPlayer.name);
-        showOtherPlayerUndoBtn(score, targetPlayer.name);
-      } else {
-        hideOtherPlayerUndoBtn();
-        showToast(`+${score} pts added to ${targetPlayer.name}`, "success");
-      }
-
-      // Reset calculator inputs
-      if (scoringInputMode === 'manual') {
-        document.getElementById('manualScoreInput').value = '';
-        updateManualScore();
-      } else {
-        currentSelectedNumbers = [];
-        hasSecond13 = false;
-        const btnLucky13 = document.getElementById('btnLucky13');
-        if (btnLucky13) {
-          btnLucky13.className = "w-full py-1.5 bg-slate-700 hover:bg-slate-600 text-xs font-bold text-slate-300 rounded-lg border border-slate-600 transition active:scale-98";
-          btnLucky13.innerText = "[+] Add 2nd \"Lucky 13\" Card (+13)";
+        if (isScoringForOther) {
+          lastOtherPlayerCommit = { playerIdx: targetIdx, playerId: targetPlayer.id, playerName: targetPlayer.name, score };
+          showOtherPlayerScorePopup(score, targetPlayer.name);
+          showOtherPlayerUndoBtn(score, targetPlayer.name);
+        } else {
+          hideOtherPlayerUndoBtn();
+          showToast(`+${score} pts added to ${targetPlayer.name}`, "success");
         }
-        renderNumberButtons();
-        document.getElementById('selectedNumbers').innerText = 'None';
-        document.getElementById('cardCount').innerText = '0';
-        document.getElementById('modDiv2').checked = false;
-        document.getElementById('modX2').checked = false;
-        document.getElementById('vengeanceNegativeMod').value = "0";
-        document.getElementById('standardPositiveMod').value = "0";
-        document.getElementById('flip7Bonus').checked = false;
-        document.getElementById('bustCheck').checked = false;
-        calculateScore();
-      }
 
-      // Default back to "You" on this device
-      if (myPlayerId && gameState.players) {
-        const myIdx = gameState.players.findIndex(p => p.id === myPlayerId);
-        if (myIdx !== -1) activePlayerIdx = myIdx;
-      } else if (myPlayerName && gameState.players) {
-        const myIdx = gameState.players.findIndex(p => p.name.toLowerCase() === myPlayerName.toLowerCase());
-        if (myIdx !== -1) activePlayerIdx = myIdx;
-      }
+        // Reset calculator inputs
+        if (scoringInputMode === 'manual') {
+          document.getElementById('manualScoreInput').value = '';
+          updateManualScore();
+        } else {
+          currentSelectedNumbers = [];
+          hasSecond13 = false;
+          const btnLucky13 = document.getElementById('btnLucky13');
+          if (btnLucky13) {
+            btnLucky13.className = "w-full py-1.5 bg-slate-700 hover:bg-slate-600 text-xs font-bold text-slate-300 rounded-lg border border-slate-600 transition active:scale-98";
+            btnLucky13.innerText = "[+] Add 2nd \"Lucky 13\" Card (+13)";
+          }
+          renderNumberButtons();
+          document.getElementById('selectedNumbers').innerText = 'None';
+          document.getElementById('cardCount').innerText = '0';
+          document.getElementById('modDiv2').checked = false;
+          document.getElementById('modX2').checked = false;
+          document.getElementById('vengeanceNegativeMod').value = "0";
+          document.getElementById('standardPositiveMod').value = "0";
+          document.getElementById('flip7Bonus').checked = false;
+          document.getElementById('bustCheck').checked = false;
+          calculateScore();
+        }
 
-      renderPlayerSelector();
-      renderScoreboard();
+        // Default back to "You" on this device
+        if (myPlayerId && gameState.players) {
+          const myIdx = gameState.players.findIndex(p => p.id === myPlayerId);
+          if (myIdx !== -1) activePlayerIdx = myIdx;
+        } else if (myPlayerName && gameState.players) {
+          const myIdx = gameState.players.findIndex(p => p.name.toLowerCase() === myPlayerName.toLowerCase());
+          if (myIdx !== -1) activePlayerIdx = myIdx;
+        }
+
+        renderPlayerSelector();
+        renderScoreboard();
+      } finally {
+        isCommittingScore = false;
+        isPushing = false;
+        if (commitBtn) commitBtn.disabled = false;
+      }
     }
 
     function showOtherPlayerScorePopup(score, playerName) {
@@ -2263,9 +2352,15 @@
       }
     }
 
-    function undoOtherPlayerScore() {
+    async function undoOtherPlayerScore() {
       if (!lastOtherPlayerCommit) return;
       const { playerId, playerName, score } = lastOtherPlayerCommit;
+      lastOtherPlayerCommit = null;
+      hideOtherPlayerUndoBtn();
+      dismissOtherPlayerScorePopup();
+
+      isPushing = true;
+      await pullLatestRemoteState();
       let player = null;
       if (playerId) {
         player = gameState.players.find(p => p.id === playerId);
@@ -2284,34 +2379,43 @@
           else player.rounds.pop();
         }
         renderScoreboard();
-        syncState();
+        await syncState();
         showToast(`Undid ${score} points for ${player.name}`, "info");
+      } else {
+        isPushing = false;
       }
-      lastOtherPlayerCommit = null;
-      hideOtherPlayerUndoBtn();
-      dismissOtherPlayerScorePopup();
     }
 
     async function removeLastRound(pIdx) {
       if (!gameState.players || !gameState.players[pIdx]) return;
       const player = gameState.players[pIdx];
+      const targetId = player.id;
+      const targetName = player.name;
       if (!player.rounds || player.rounds.length === 0) {
-        return showToast(`No rounds logged yet for ${player.name}`, "info");
+        return showToast(`No rounds logged yet for ${targetName}`, "info");
       }
       const lastScore = player.rounds[player.rounds.length - 1];
 
       const confirmed = await showModal({
         title: "Undo Last Round",
-        message: `Remove the last score of ${lastScore} pts from "${player.name}"?`,
+        message: `Remove the last score of ${lastScore} pts from "${targetName}"?`,
         confirmText: "Undo Score",
         cancelText: "Cancel"
       });
 
       if (confirmed) {
-        const removed = player.rounds.pop();
+        isPushing = true;
+        await pullLatestRemoteState();
+        const targetPlayer = (gameState.players || []).find(p => p.id === targetId) || gameState.players[pIdx];
+        if (!targetPlayer || !targetPlayer.rounds || targetPlayer.rounds.length === 0) {
+          isPushing = false;
+          renderScoreboard();
+          return;
+        }
+        const removed = targetPlayer.rounds.pop();
         renderScoreboard();
-        syncState();
-        showToast(`Removed last round (${removed} pts) from ${player.name}`, "info");
+        await syncState();
+        showToast(`Removed last round (${removed} pts) from ${targetPlayer.name}`, "info");
       }
     }
 
@@ -2319,6 +2423,7 @@
       if (!gameState.players || !gameState.players[idx]) return;
       activeHistoryPlayerIdx = idx;
       const player = gameState.players[idx];
+      activeHistoryPlayerId = player.id;
 
       document.getElementById('historyPlayerName').innerText = player.name;
       const total = (player.rounds || []).reduce((a, b) => a + b, 0);
@@ -2358,40 +2463,67 @@
       const modal = document.getElementById('roundHistoryModal');
       if (modal) modal.classList.add('hidden');
       activeHistoryPlayerIdx = null;
+      activeHistoryPlayerId = null;
+    }
+
+    function getActiveHistoryPlayer() {
+      if (!gameState.players) return null;
+      if (activeHistoryPlayerId) {
+        const byId = gameState.players.find(p => p.id === activeHistoryPlayerId);
+        if (byId) return byId;
+      }
+      if (activeHistoryPlayerIdx !== null && gameState.players[activeHistoryPlayerIdx]) {
+        return gameState.players[activeHistoryPlayerIdx];
+      }
+      return null;
     }
 
     async function deleteSpecificRound(rIdx) {
-      if (activeHistoryPlayerIdx === null || !gameState.players[activeHistoryPlayerIdx]) return;
-      const player = gameState.players[activeHistoryPlayerIdx];
-      const pts = player.rounds[rIdx];
+      const initialPlayer = getActiveHistoryPlayer();
+      if (!initialPlayer || !initialPlayer.rounds || initialPlayer.rounds[rIdx] === undefined) return;
+      const pts = initialPlayer.rounds[rIdx];
 
       const confirmed = await showModal({
         title: "Delete Round",
-        message: `Delete Round ${rIdx + 1} (${pts} pts) from ${player.name}?`,
+        message: `Delete Round ${rIdx + 1} (${pts} pts) from ${initialPlayer.name}?`,
         confirmText: "Delete",
         cancelText: "Keep"
       });
 
       if (confirmed) {
+        isPushing = true;
+        await pullLatestRemoteState();
+        const player = getActiveHistoryPlayer();
+        if (!player || !player.rounds || player.rounds[rIdx] === undefined) {
+          isPushing = false;
+          return;
+        }
         player.rounds.splice(rIdx, 1);
         renderHistoryRoundsList(player);
         const total = player.rounds.reduce((a, b) => a + b, 0);
         document.getElementById('historyTotalScore').innerText = total;
         renderScoreboard();
-        syncState();
+        await syncState();
         showToast(`Removed Round ${rIdx + 1}`, "info");
       }
     }
 
     async function submitRecoveredRound() {
-      if (activeHistoryPlayerIdx === null || !gameState.players[activeHistoryPlayerIdx]) return;
+      const initialPlayer = getActiveHistoryPlayer();
+      if (!initialPlayer) return;
       const input = document.getElementById('historyAddRoundInput');
       const val = parseInt(input.value, 10);
       if (isNaN(val)) {
         return showToast("Please enter a valid number of points.", "error");
       }
 
-      const player = gameState.players[activeHistoryPlayerIdx];
+      isPushing = true;
+      await pullLatestRemoteState();
+      const player = getActiveHistoryPlayer();
+      if (!player) {
+        isPushing = false;
+        return;
+      }
       if (!player.rounds) player.rounds = [];
       player.rounds.push(val);
       input.value = '';
@@ -2400,7 +2532,7 @@
       const total = player.rounds.reduce((a, b) => a + b, 0);
       document.getElementById('historyTotalScore').innerText = total;
       renderScoreboard();
-      syncState();
+      await syncState();
       showToast(`Added ${val} pts to ${player.name}`, "success");
     }
 
