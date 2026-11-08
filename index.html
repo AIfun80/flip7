@@ -676,6 +676,7 @@
     let isDraggingPlayerRow = false;
     let dragSourceIdx = null;
     let dragOverIdx = null;
+    let activeTouchDragCleanup = null;
     let lastConnStatus = null;
     let pollTimeoutId = null;
     let activePlayerIdx = null;
@@ -1517,7 +1518,19 @@
       const tbody = document.getElementById('playerTableBody');
       if (!tbody) return;
       tbody.querySelectorAll('tr[data-player-idx]').forEach(row => {
-        row.classList.remove('opacity-40', 'border-t-2', 'border-t-amber-400', 'border-b-2', 'border-b-amber-400');
+        row.classList.remove(
+          'opacity-40',
+          'border-t-2',
+          'border-t-amber-400',
+          'border-b-2',
+          'border-b-amber-400',
+          'bg-slate-700/90',
+          'ring-2',
+          'ring-amber-400',
+          'shadow-lg',
+          'relative',
+          'z-10'
+        );
       });
     }
 
@@ -1833,6 +1846,11 @@
     }
 
     function renderScoreboard() {
+      if (activeTouchDragCleanup) {
+        activeTouchDragCleanup();
+        activeTouchDragCleanup = null;
+      }
+
       const tbody = document.getElementById('playerTableBody');
       tbody.innerHTML = '';
 
@@ -1894,8 +1912,20 @@
 
         const tr = document.createElement('tr');
         tr.setAttribute('data-player-idx', String(idx));
-        tr.draggable = (gameState.players.length > 1);
+        tr.draggable = false;
         tr.className = `transition-colors ${hasWon ? 'bg-amber-950/40 font-bold' : isMe ? 'bg-sky-950/25 border-l-2 border-l-sky-400' : isCurrentlyActive ? 'bg-slate-700/30' : 'hover:bg-slate-750'}`;
+
+        tr.onmousedown = (e) => {
+          if (e.target.closest('button, input, a, select')) {
+            tr.draggable = false;
+            return;
+          }
+          tr.draggable = (gameState.players.length > 1);
+        };
+
+        tr.onmouseup = () => {
+          tr.draggable = false;
+        };
         
         tr.ondragstart = (e) => {
           isDraggingPlayerRow = true;
@@ -1922,6 +1952,7 @@
           e.preventDefault();
           const fromIdx = dragSourceIdx;
           const toIdx = idx;
+          tr.draggable = false;
           isDraggingPlayerRow = false;
           dragSourceIdx = null;
           dragOverIdx = null;
@@ -1932,6 +1963,7 @@
         };
 
         tr.ondragend = () => {
+          tr.draggable = false;
           isDraggingPlayerRow = false;
           dragSourceIdx = null;
           dragOverIdx = null;
@@ -1941,7 +1973,7 @@
         tr.innerHTML = `
           <td class="py-2.5 px-3">
             <div class="flex flex-wrap items-center gap-1.5">
-              ${gameState.players.length > 1 ? `<span class="drag-handle cursor-grab active:cursor-grabbing text-slate-500 hover:text-amber-400 px-1 py-0.5 select-none text-sm leading-none" style="touch-action: none;" title="Drag to reorder seating">⋮⋮</span>` : ''}
+              ${gameState.players.length > 1 ? `<span class="drag-handle inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-900/80 border border-slate-700 text-slate-300 hover:text-amber-300 active:bg-amber-500 active:text-slate-950 active:border-amber-400 cursor-grab active:cursor-grabbing select-none text-base font-bold shrink-0 shadow-sm" style="touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;" oncontextmenu="return false;" title="Hold & drag to reorder seating">⋮⋮</span>` : ''}
               ${isLeader ? '<span title="Current Leader" class="text-sm leading-none select-none">👑</span>' : ''}
               <button onclick="promptEditPlayerName(${idx})" class="${isMe ? 'text-base md:text-lg font-bold text-sky-200 hover:text-sky-300' : 'text-sm font-semibold text-slate-100 hover:text-amber-400'} text-left transition flex items-center gap-1.5 group" title="Rename player">
                 <span class="underline decoration-slate-600 group-hover:decoration-amber-400 underline-offset-4">${escapeHtml(p.name)}</span>
@@ -1983,46 +2015,79 @@
 
         const handleEl = tr.querySelector('.drag-handle');
         if (handleEl) {
-          handleEl.addEventListener('touchstart', () => {
+          handleEl.addEventListener('touchstart', (e) => {
+            if (!e.touches || !e.touches[0]) return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (activeTouchDragCleanup) {
+              activeTouchDragCleanup();
+              activeTouchDragCleanup = null;
+            }
+
             isDraggingPlayerRow = true;
             dragSourceIdx = idx;
             dragOverIdx = idx;
-            tr.classList.add('opacity-40');
-          }, { passive: true });
+            tr.classList.add('bg-slate-700/90', 'ring-2', 'ring-amber-400', 'shadow-lg', 'relative', 'z-10');
 
-          handleEl.addEventListener('touchmove', (e) => {
-            if (dragSourceIdx === null || !e.touches || !e.touches[0]) return;
-            e.preventDefault();
-            const touch = e.touches[0];
-            const elUnderFinger = document.elementFromPoint(touch.clientX, touch.clientY);
-            const targetRow = elUnderFinger ? elUnderFinger.closest('tr[data-player-idx]') : null;
-            if (targetRow) {
-              const targetIdx = parseInt(targetRow.getAttribute('data-player-idx'), 10);
-              if (!isNaN(targetIdx) && targetIdx !== dragOverIdx) {
-                dragOverIdx = targetIdx;
-                applyDragOverHighlight(targetIdx);
+            const onWindowTouchMove = (ev) => {
+              if (!isDraggingPlayerRow || !ev.touches || !ev.touches[0]) return;
+              if (ev.cancelable) ev.preventDefault();
+              const touch = ev.touches[0];
+              const rows = Array.from(tbody.querySelectorAll('tr[data-player-idx]'));
+              const currentDomIdx = rows.indexOf(tr);
+              if (currentDomIdx === -1) return;
+
+              for (let i = 0; i < rows.length; i++) {
+                const otherRow = rows[i];
+                if (otherRow === tr) continue;
+                const rect = otherRow.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                if (i < currentDomIdx && touch.clientY < midY) {
+                  tbody.insertBefore(tr, otherRow);
+                  break;
+                } else if (i > currentDomIdx && touch.clientY > midY) {
+                  tbody.insertBefore(tr, otherRow.nextSibling);
+                  break;
+                }
               }
-            }
+            };
+
+            const finishTouchDrag = async (cancelled) => {
+              window.removeEventListener('touchmove', onWindowTouchMove);
+              window.removeEventListener('touchend', onWindowTouchEnd);
+              window.removeEventListener('touchcancel', onWindowTouchCancel);
+              activeTouchDragCleanup = null;
+
+              const rows = Array.from(tbody.querySelectorAll('tr[data-player-idx]'));
+              const finalIdx = rows.indexOf(tr);
+              const fromIdx = dragSourceIdx;
+
+              isDraggingPlayerRow = false;
+              dragSourceIdx = null;
+              dragOverIdx = null;
+              clearDragHighlights();
+
+              if (!cancelled && fromIdx !== null && finalIdx !== -1 && fromIdx !== finalIdx) {
+                await reorderPlayer(fromIdx, finalIdx);
+              } else if (cancelled) {
+                renderScoreboard();
+              }
+            };
+
+            const onWindowTouchEnd = () => finishTouchDrag(false);
+            const onWindowTouchCancel = () => finishTouchDrag(true);
+
+            activeTouchDragCleanup = () => {
+              window.removeEventListener('touchmove', onWindowTouchMove);
+              window.removeEventListener('touchend', onWindowTouchEnd);
+              window.removeEventListener('touchcancel', onWindowTouchCancel);
+            };
+
+            window.addEventListener('touchmove', onWindowTouchMove, { passive: false });
+            window.addEventListener('touchend', onWindowTouchEnd);
+            window.addEventListener('touchcancel', onWindowTouchCancel);
           }, { passive: false });
-
-          handleEl.addEventListener('touchend', async () => {
-            const fromIdx = dragSourceIdx;
-            const toIdx = dragOverIdx;
-            isDraggingPlayerRow = false;
-            dragSourceIdx = null;
-            dragOverIdx = null;
-            clearDragHighlights();
-            if (fromIdx !== null && toIdx !== null && fromIdx !== toIdx) {
-              await reorderPlayer(fromIdx, toIdx);
-            }
-          });
-
-          handleEl.addEventListener('touchcancel', () => {
-            isDraggingPlayerRow = false;
-            dragSourceIdx = null;
-            dragOverIdx = null;
-            clearDragHighlights();
-          });
         }
 
         tbody.appendChild(tr);
