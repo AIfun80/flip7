@@ -209,6 +209,7 @@
       <h2 id="amazeWinnerHeading" class="text-2xl md:text-3xl font-black text-amber-400 tracking-wide uppercase"></h2>
       <p class="text-xl md:text-2xl font-black text-pink-400 tracking-widest uppercase">Amaze, Amaze, Amaze!</p>
       <p class="text-xs text-slate-300">Victory achieved! All hail the new champion.</p>
+      <div id="amazeMatchStats" class="bg-slate-900/85 border border-slate-700 rounded-xl p-3 text-left space-y-1.5 text-xs hidden"></div>
       <div class="flex flex-col sm:flex-row gap-2 pt-1">
         <button onclick="startNextGameFromBanner()" class="flex-1 py-2.5 px-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs transition tracking-wider uppercase shadow-lg shadow-emerald-500/20 active:scale-98">
           🏆 Start Next Game
@@ -851,20 +852,80 @@
       }
     }
 
-    function triggerAmazeCelebration(winnerName) {
-      if (!isAmazeEnabled()) return;
-      playAmazeAudio();
+    function renderAmazeMatchStats(winnerName) {
+      const statsEl = document.getElementById('amazeMatchStats');
+      if (!statsEl) return;
 
-      const overlay = document.getElementById('amazeFlashOverlay');
-      if (overlay) {
-        overlay.classList.remove('hidden', 'amaze-flashing');
-        void overlay.offsetWidth;
-        overlay.classList.add('amaze-flashing');
-        setTimeout(() => {
-          overlay.classList.remove('amaze-flashing');
-          overlay.classList.add('hidden');
-        }, 3000);
+      const players = gameState.players || [];
+      let maxHand = 0;
+      let bestHandPlayers = [];
+      let maxBusts = 0;
+      let mostBustPlayers = [];
+      let winnerAvgText = '';
+
+      players.forEach(p => {
+        const rounds = p.rounds || [];
+        rounds.forEach(pts => {
+          if (pts > maxHand) {
+            maxHand = pts;
+            bestHandPlayers = [p.name];
+          } else if (pts === maxHand && maxHand > 0 && !bestHandPlayers.includes(p.name)) {
+            bestHandPlayers.push(p.name);
+          }
+        });
+
+        const bustCount = rounds.filter(pts => pts <= 0).length;
+        if (bustCount > maxBusts) {
+          maxBusts = bustCount;
+          mostBustPlayers = [p.name];
+        } else if (bustCount === maxBusts && maxBusts > 0 && !mostBustPlayers.includes(p.name)) {
+          mostBustPlayers.push(p.name);
+        }
+
+        if (p.name === winnerName && rounds.length > 0) {
+          const total = rounds.reduce((a, b) => a + b, 0);
+          const avg = (total / rounds.length).toFixed(1);
+          winnerAvgText = `${avg} pts/rd (${rounds.length} rds)`;
+        }
+      });
+
+      const rows = [];
+      if (maxHand > 0) {
+        rows.push(`<div class="flex items-center justify-between gap-2"><span class="text-slate-400">🔥 Biggest Hand:</span><span class="font-bold text-amber-300">${maxHand} pts (${escapeHtml(bestHandPlayers.join(', '))})</span></div>`);
       }
+      if (maxBusts > 0) {
+        rows.push(`<div class="flex items-center justify-between gap-2"><span class="text-slate-400">💀 Most Busts:</span><span class="font-bold text-red-300">${maxBusts} (${escapeHtml(mostBustPlayers.join(', '))})</span></div>`);
+      }
+      if (winnerAvgText) {
+        rows.push(`<div class="flex items-center justify-between gap-2"><span class="text-slate-400">⚡ Winner Pace:</span><span class="font-bold text-emerald-300">${escapeHtml(winnerAvgText)}</span></div>`);
+      }
+
+      if (rows.length > 0) {
+        statsEl.innerHTML = rows.join('');
+        statsEl.classList.remove('hidden');
+      } else {
+        statsEl.innerHTML = '';
+        statsEl.classList.add('hidden');
+      }
+    }
+
+    function triggerAmazeCelebration(winnerName) {
+      if (isAmazeEnabled()) {
+        playAmazeAudio();
+
+        const overlay = document.getElementById('amazeFlashOverlay');
+        if (overlay) {
+          overlay.classList.remove('hidden', 'amaze-flashing');
+          void overlay.offsetWidth;
+          overlay.classList.add('amaze-flashing');
+          setTimeout(() => {
+            overlay.classList.remove('amaze-flashing');
+            overlay.classList.add('hidden');
+          }, 3000);
+        }
+      }
+
+      renderAmazeMatchStats(winnerName);
 
       const banner = document.getElementById('amazeBannerOverlay');
       const heading = document.getElementById('amazeWinnerHeading');
@@ -1398,6 +1459,38 @@
       calculateScore();
     }
 
+    async function movePlayer(idx, direction) {
+      if (!gameState.players || gameState.players.length < 2) return;
+      const targetIdx = idx + direction;
+      if (targetIdx < 0 || targetIdx >= gameState.players.length) return;
+      const movingPlayerId = gameState.players[idx].id;
+      const selectedPlayerId = (activePlayerIdx !== null && gameState.players[activePlayerIdx])
+        ? gameState.players[activePlayerIdx].id
+        : null;
+
+      isPushing = true;
+      await pullLatestRemoteState();
+      const curIdx = (gameState.players || []).findIndex(p => p.id === movingPlayerId);
+      const newIdx = curIdx + direction;
+      if (curIdx === -1 || newIdx < 0 || newIdx >= gameState.players.length) {
+        isPushing = false;
+        renderScoreboard();
+        return;
+      }
+
+      const temp = gameState.players[curIdx];
+      gameState.players[curIdx] = gameState.players[newIdx];
+      gameState.players[newIdx] = temp;
+
+      if (selectedPlayerId) {
+        const updatedSelectedIdx = gameState.players.findIndex(p => p.id === selectedPlayerId);
+        if (updatedSelectedIdx !== -1) activePlayerIdx = updatedSelectedIdx;
+      }
+
+      renderScoreboard();
+      await syncState();
+    }
+
     async function setCurrentDealer(playerIdx) {
       if (!gameState.players || gameState.players.length === 0) return;
       const n = gameState.players.length;
@@ -1786,7 +1879,11 @@
             </button>
           </td>
           <td class="py-2.5 px-3 text-center">
-            <div class="inline-flex items-center gap-2">
+            <div class="inline-flex items-center gap-1.5">
+              <div class="inline-flex items-center bg-slate-900/70 border border-slate-700/80 rounded px-1 py-0.5 gap-0.5" title="Adjust seating order for dealer rotation">
+                <button onclick="movePlayer(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} class="text-[11px] leading-none text-slate-400 hover:text-amber-300 disabled:opacity-25 disabled:pointer-events-none px-0.5 transition" title="Move seat up">↑</button>
+                <button onclick="movePlayer(${idx}, 1)" ${idx === gameState.players.length - 1 ? 'disabled' : ''} class="text-[11px] leading-none text-slate-400 hover:text-amber-300 disabled:opacity-25 disabled:pointer-events-none px-0.5 transition" title="Move seat down">↓</button>
+              </div>
               <button onclick="removeLastRound(${idx})" class="text-xs font-semibold text-amber-400 hover:text-amber-300 hover:underline" title="Undo last round score">
                 Undo
               </button>
@@ -1822,10 +1919,17 @@
 
     const guideSteps = [
       {
-        title: "1. Add to Score",
-        desc: "Tap cards in the grid for your score and tap Add to Score.",
+        title: "1. Share Room & Add to Score",
+        desc: "Tap Share next to the Room code so friends can scan the QR code to join. Tap your number cards and press Add to Score.",
         mockup: `
           <div class="space-y-3">
+            <div class="flex items-center justify-between bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-700 text-xs">
+              <div class="flex items-center gap-2">
+                <span class="text-slate-400 font-semibold uppercase">Room:</span>
+                <span class="font-mono font-bold text-amber-300">F7_89AB12</span>
+              </div>
+              <span class="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs">📱 Share QR</span>
+            </div>
             <div class="guide-highlight bg-slate-800/95 p-3 rounded-xl border border-amber-500/80 space-y-2.5 shadow-lg">
               <div class="text-[11px] font-bold text-slate-300">1. Number Cards in Line:</div>
               <div class="grid grid-cols-7 gap-1">
@@ -1842,10 +1946,9 @@
                 <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">10</span>
                 <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">11</span>
                 <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">12</span>
-                <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">13</span>
               </div>
               <div class="flex items-center justify-between pt-1">
-                <span class="text-xs font-bold text-amber-400">Total: 16 pts</span>
+                <span class="text-xs font-bold text-amber-400">Round Total: 16 pts</span>
                 <button class="px-3.5 py-1.5 bg-amber-500 text-slate-950 font-black text-xs rounded-lg shadow-md pointer-events-none">
                   Add to Score ↵
                 </button>
@@ -1856,7 +1959,7 @@
       },
       {
         title: "2. Standard vs. Vengeance",
-        desc: "Switches between Standard and Vengeance rules.",
+        desc: "Switch between Standard rules (+2 to +10, x2) and Vengeance rules (Lucky 13, /2, -2 to -10, Brutal Mode).",
         mockup: `
           <div class="space-y-2.5">
             <div class="guide-highlight bg-slate-800/90 p-2.5 rounded-xl border border-amber-500/80 flex items-center justify-between">
@@ -1870,71 +1973,66 @@
         `
       },
       {
-        title: "3. Apply Modifiers",
-        desc: "Use this section to apply modifiers to your score",
+        title: "3. Stack Modifiers & Automatic Flip 7",
+        desc: "Tap as many modifier cards (+2 to +10, or x2) as you drew in your hand. Selecting 7 number cards automatically unlocks the +15 Flip 7 Bonus!",
         mockup: `
           <div class="space-y-2">
-            <div class="grid grid-cols-7 gap-1">
-              <span class="py-1 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">0</span>
-              <span class="py-1 bg-amber-500 text-center rounded text-xs font-black text-slate-950">5</span>
-              <span class="py-1 bg-amber-500 text-center rounded text-xs font-black text-slate-950">8</span>
-              <span class="py-1 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">9</span>
-              <span class="py-1 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">11</span>
-              <span class="py-1 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">12</span>
-              <span class="py-1 bg-amber-500 text-center rounded text-xs font-black text-slate-950">13</span>
-            </div>
-            <div class="guide-highlight bg-slate-800/90 p-2.5 rounded-xl border border-amber-500/80 space-y-2">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="bg-slate-700 border border-red-500/60 px-2 py-1 rounded text-[11px] font-bold text-red-300 flex items-center gap-1">
-                  <span class="w-3 h-3 bg-red-500 rounded-sm inline-block"></span> /2 (Cut in Half)
+            <div class="guide-highlight bg-slate-800/90 p-3 rounded-xl border border-amber-500/80 space-y-2.5">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="bg-emerald-300 border border-emerald-400 px-2.5 py-1 rounded-lg text-xs font-extrabold text-slate-900">
+                  ☑ x2
                 </span>
-                <span class="bg-slate-700 border border-red-500/60 px-2 py-1 rounded text-[11px] font-bold text-red-300">
-                  -4 Modifier
-                </span>
-                <span class="bg-slate-700 px-2 py-1 rounded text-[11px] text-amber-300 font-semibold">
-                  Flip 7 (+15)
-                </span>
+                <span class="bg-slate-700 border border-amber-500/40 px-2 py-1 rounded-lg text-xs font-bold text-amber-300">+2</span>
+                <span class="bg-amber-500 border border-amber-300 px-2 py-1 rounded-lg text-xs font-extrabold text-slate-950">+4</span>
+                <span class="bg-slate-700 border border-amber-500/40 px-2 py-1 rounded-lg text-xs font-bold text-amber-300">+6</span>
+                <span class="bg-amber-500 border border-amber-300 px-2 py-1 rounded-lg text-xs font-extrabold text-slate-950">+8</span>
+                <span class="bg-slate-700 border border-amber-500/40 px-2 py-1 rounded-lg text-xs font-bold text-amber-300">+10</span>
               </div>
-              <div class="bg-slate-900/80 p-1.5 rounded text-[11px] font-mono text-slate-200">
-                Formula: (26 / 2) - 4 + 15 = 24
+              <div class="flex items-center justify-between">
+                <span class="bg-amber-500/20 border border-amber-400 px-2.5 py-1 rounded-lg text-xs text-amber-300 font-bold">
+                  ☑ Flip 7 Bonus (+15 pts)
+                </span>
+                <span class="text-xs font-mono text-amber-400 font-bold">Cards: 7/7</span>
               </div>
             </div>
           </div>
         `
       },
       {
-        title: "4. Busted",
-        desc: "Check the Busted box to set your round score to 0 points.",
+        title: "4. One-Tap Bust Button",
+        desc: "Busted your hand? Tap the red 💥 Bust (0) button next to Add to Score to immediately log 0 points for the round.",
         mockup: `
           <div class="space-y-3">
-            <div class="guide-highlight bg-red-950/70 border border-red-600/80 p-3 rounded-xl flex items-center justify-between">
+            <div class="guide-highlight bg-slate-900 border border-red-500/80 p-3 rounded-xl flex items-center justify-between gap-2">
+              <span class="text-xs font-bold text-amber-400">Round Total: 0 pts</span>
               <div class="flex items-center gap-2">
-                <input type="checkbox" checked class="accent-red-500 w-4 h-4" disabled>
-                <span class="text-red-300 font-bold text-xs">Busted (0 pts)</span>
+                <span class="px-3 py-1.5 bg-amber-500 text-slate-900 font-bold text-xs rounded-lg opacity-60">Add to Score</span>
+                <span class="px-3 py-1.5 bg-red-950 border-2 border-red-500 text-red-200 font-bold text-xs rounded-lg shadow-lg">💥 Bust (0)</span>
               </div>
-              <span class="text-xs font-mono font-bold text-red-400 bg-red-900/60 px-2 py-1 rounded">
-                0 Points
-              </span>
             </div>
           </div>
         `
       },
       {
-        title: "5. Manual Score",
-        desc: "Switch to this to manually enter your score total.",
+        title: "5. Seating Order, Dealer & Manual Score",
+        desc: "Use ↑/↓ in Standings to match your table seating so 🃏 Dealer rotates in order, or switch to Manual Score to type totals directly.",
         mockup: `
-          <div class="space-y-3">
-            <div class="flex items-center gap-2 bg-slate-900 p-1 rounded-lg border border-slate-700 w-fit text-xs">
-              <span class="px-2.5 py-1 text-slate-400 font-medium">Card Calculator</span>
-              <span class="px-2.5 py-1 bg-amber-500 text-slate-950 font-bold rounded-md shadow-sm">Manual Score</span>
-            </div>
-            <div class="guide-highlight bg-slate-800/90 border border-amber-500/80 p-3 rounded-xl flex items-center gap-3">
-              <div class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xl font-mono font-bold text-amber-400 w-24 text-center">
-                42
-              </div>
+          <div class="space-y-2.5">
+            <div class="bg-slate-800/90 border border-slate-700 p-2.5 rounded-xl flex items-center justify-between text-xs">
               <div class="flex items-center gap-1.5">
-                <span class="px-2.5 py-1.5 bg-red-950/70 border border-red-800 text-red-300 rounded-lg text-xs font-bold">Bust (0)</span>
-                <span class="px-2.5 py-1.5 bg-slate-700 text-slate-200 rounded-lg text-xs font-bold">+15</span>
+                <span>👑</span>
+                <span class="font-bold text-sky-200">Chris</span>
+                <span class="px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-300 text-[10px] font-bold">🏆 2</span>
+                <span class="px-1.5 py-0.5 rounded bg-indigo-500/25 border border-indigo-400/50 text-indigo-200 text-[10px] font-bold">🃏 Dealer</span>
+              </div>
+              <span class="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-slate-300 font-bold">↑ ↓</span>
+            </div>
+            <div class="guide-highlight bg-slate-800/90 border border-amber-500/80 p-2.5 rounded-xl flex items-center justify-between gap-3">
+              <span class="text-xs text-slate-300 font-semibold">Manual Score Tab:</span>
+              <div class="flex items-center gap-1.5">
+                <span class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-base font-mono font-bold text-amber-400">42</span>
+                <span class="px-2 py-1 bg-red-950/70 border border-red-800 text-red-300 rounded-lg text-xs font-bold">Bust (0)</span>
+                <span class="px-2 py-1 bg-slate-700 text-slate-200 rounded-lg text-xs font-bold">+15</span>
               </div>
             </div>
           </div>
