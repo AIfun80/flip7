@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Flip 7 Calculator</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <style>
     html.she-old {
       font-size: 120%;
@@ -264,6 +265,45 @@
     </div>
   </div>
 
+  <!-- Share Room QR Code Modal -->
+  <div id="shareRoomModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm hidden p-4" onclick="if(event.target === this) closeShareModal()">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl animate-fade-in text-center">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-700/60">
+        <div class="text-left">
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <span>📱 Join This Match</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">Room Code: <span id="shareModalRoomCode" class="font-mono font-bold text-amber-400"></span></p>
+        </div>
+        <button onclick="closeShareModal()" class="text-slate-400 hover:text-white text-xl p-1 transition leading-none" title="Close">&times;</button>
+      </div>
+
+      <p class="text-xs text-slate-300">Scan with your phone camera to join this scoreboard live:</p>
+
+      <!-- High-contrast QR Code Container -->
+      <div class="flex justify-center">
+        <div id="qrCodeContainer" class="bg-white p-3.5 rounded-2xl shadow-inner border-4 border-amber-400 w-56 h-56 flex items-center justify-center overflow-hidden">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Share Link & Actions -->
+      <div class="space-y-2 pt-1">
+        <div class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-[11px] font-mono text-slate-300 truncate select-all" id="shareModalUrlText"></div>
+        <div class="flex items-center justify-center gap-2">
+          <button onclick="copyShareLink()" class="flex-1 py-2 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition active:scale-95 shadow-sm flex items-center justify-center gap-1.5">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+            <span>Copy Link</span>
+          </button>
+          <button id="nativeShareBtn" onclick="nativeShareRoom()" class="hidden py-2 px-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl text-xs transition active:scale-95 shadow-sm items-center justify-center gap-1.5">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
+            <span>Send...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Bar (Top-centered) -->
   <div id="toastContainer" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 max-w-sm w-full pointer-events-none px-4"></div>
 
@@ -287,8 +327,12 @@
       <div class="flex flex-wrap items-center gap-3">
         <div class="flex items-center gap-1.5">
           <span class="text-xs font-semibold uppercase text-slate-400">Room:</span>
-          <span id="roomDisplay" class="text-base font-mono font-bold text-amber-300">Loading...</span>
-          <button onclick="copyShareLink()" title="Copy room invite link" class="p-1 rounded-md bg-slate-700/80 hover:bg-amber-500 text-slate-300 hover:text-slate-950 transition active:scale-95 flex items-center justify-center">
+          <button onclick="openShareModal()" title="Click to show Room QR Code" id="roomDisplay" class="text-base font-mono font-bold text-amber-300 hover:text-amber-200 underline decoration-amber-500/40 underline-offset-4 transition">Loading...</button>
+          <button onclick="openShareModal()" title="Show QR Code to join room" class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition active:scale-95 flex items-center gap-1.5 shadow-sm">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm8-12v8h8V3h-8zm6 6h-4V5h4v4zm-5.99 4h2v2h-2v-2zm2 2h2v2h-2v-2zm-2 2h2v2h-2v-2zm4 0h2v2h-2v-2zm2 2h2v2h-2v-2zm-4 0h2v2h-2v-2zm2-6h2v2h-2v-2zm2 2h2v2h-2v-2z"/></svg>
+            <span>Share</span>
+          </button>
+          <button onclick="copyShareLink()" title="Copy room invite link" class="p-1.5 rounded-lg bg-slate-700/80 hover:bg-amber-500 text-slate-300 hover:text-slate-950 transition active:scale-95 flex items-center justify-center">
             <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
           </button>
         </div>
@@ -327,7 +371,7 @@
 
         <label id="oldCuntContainer" class="hidden items-center gap-1.5 bg-slate-900/90 border border-slate-700 hover:border-purple-400/60 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition select-none group">
           <input type="checkbox" id="oldCuntToggle" onchange="toggleOldCunt(this.checked)" class="accent-purple-400 w-3.5 h-3.5 rounded cursor-pointer">
-          <span class="font-bold text-slate-300 group-hover:text-purple-300 transition">Old Cunt (OC) 👵</span>
+          <span class="font-bold text-slate-300 group-hover:text-purple-300 transition">OC 👵</span>
         </label>
       </div>
 
@@ -1173,6 +1217,7 @@
         closeRoundHistoryModal();
         closeIdentityModal();
         closeAppOverviewModal();
+        closeShareModal();
         closeModal(false);
       }
     });
@@ -2400,21 +2445,122 @@
       showToast(`Created new room: ${roomId.toUpperCase()}`, "success");
     }
 
-    function copyShareLink() {
+    function getShareUrl() {
       let shareUrl = window.location.href;
       try {
         const parsed = new URL(window.location.href);
         parsed.searchParams.set('room', roomId);
         shareUrl = parsed.toString();
       } catch (e) {}
+      return shareUrl;
+    }
 
+    function openShareModal() {
+      const shareUrl = getShareUrl();
+      const modal = document.getElementById('shareRoomModal');
+      const codeEl = document.getElementById('shareModalRoomCode');
+      const urlEl = document.getElementById('shareModalUrlText');
+      const qrContainer = document.getElementById('qrCodeContainer');
+      const nativeShareBtn = document.getElementById('nativeShareBtn');
+
+      if (codeEl) codeEl.innerText = roomId.toUpperCase();
+      if (urlEl) urlEl.innerText = shareUrl;
+
+      if (nativeShareBtn) {
+        if (navigator.share) {
+          nativeShareBtn.classList.remove('hidden');
+          nativeShareBtn.classList.add('flex');
+        } else {
+          nativeShareBtn.classList.add('hidden');
+          nativeShareBtn.classList.remove('flex');
+        }
+      }
+
+      if (qrContainer) {
+        qrContainer.innerHTML = '';
+        if (typeof qrcode === 'function') {
+          const qr = qrcode(0, 'M');
+          qr.addData(shareUrl);
+          qr.make();
+          qrContainer.innerHTML = qr.createSvgTag({ cellSize: 6, margin: 1, scalable: true });
+          const svg = qrContainer.querySelector('svg');
+          if (svg) {
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '100%');
+          }
+        } else {
+          const img = document.createElement('img');
+          img.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(shareUrl)}`;
+          img.alt = "Room QR Code";
+          img.className = "w-full h-full object-contain";
+          qrContainer.appendChild(img);
+        }
+      }
+
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeShareModal() {
+      const modal = document.getElementById('shareRoomModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function nativeShareRoom() {
+      const shareUrl = getShareUrl();
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: `Join Flip 7 Room (${roomId.toUpperCase()})`,
+            text: `Scan or tap to join our Flip 7 scoreboard (Room ${roomId.toUpperCase()}):`,
+            url: shareUrl
+          });
+        } catch (e) {}
+      } else {
+        copyShareLink();
+      }
+    }
+
+    function copyShareLink() {
+      const shareUrl = getShareUrl();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          showToast("Room link copied to clipboard", "success");
+        }).catch(() => {
+          fallbackCopyText(shareUrl);
+        });
+      } else {
+        fallbackCopyText(shareUrl);
+      }
+    }
+
+    function fallbackCopyText(text) {
       const dummy = document.createElement('input');
       document.body.appendChild(dummy);
-      dummy.value = shareUrl;
+      dummy.value = text;
       dummy.select();
       document.execCommand('copy');
       document.body.removeChild(dummy);
       showToast("Room link copied to clipboard", "success");
+    }
+
+    const ROOM_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
+
+    async function cleanupExpiredRooms() {
+      try {
+        const cutoff = Date.now() - ROOM_TTL_MS;
+        const queryUrl = `${FIREBASE_BASE_URL}/rooms.json?orderBy=%22timestamp%22&endAt=${cutoff}`;
+        const res = await fetch(queryUrl, { cache: 'no-store' });
+        if (!res.ok) return;
+        const expiredRooms = await res.json();
+        if (!expiredRooms || typeof expiredRooms !== 'object') return;
+
+        const roomIdsToDelete = Object.keys(expiredRooms).filter(id => id !== roomId);
+        await Promise.allSettled(
+          roomIdsToDelete.map(id =>
+            fetch(`${FIREBASE_BASE_URL}/rooms/${encodeURIComponent(id)}.json`, { method: 'DELETE' })
+          )
+        );
+      } catch (e) {}
     }
 
     // App Initialization
@@ -2427,9 +2573,10 @@
     renderScoreboard();
     calculateScore();
 
-    // Start background sync with sequential polling
+    // Start background sync with sequential polling and 48h room cleanup
     fetchRemoteState();
     setupVisibilityOptimizedPolling();
+    cleanupExpiredRooms();
   </script>
 </body>
 </html>
