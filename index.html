@@ -521,9 +521,9 @@
                 <span class="font-bold text-red-300">/2 (Cut in Half)</span>
               </label>
 
-              <label id="modX2Container" class="flex items-center gap-1.5 bg-slate-700 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer border border-amber-500/50">
-                <input type="checkbox" id="modX2" onchange="calculateScore()" class="accent-amber-400">
-                <span class="font-bold text-amber-300">x2 (Double)</span>
+              <label id="modX2Container" class="flex items-center gap-1.5 bg-emerald-300 hover:bg-emerald-200 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer border border-emerald-400 shadow-sm transition">
+                <input type="checkbox" id="modX2" onchange="calculateScore()" class="accent-emerald-700">
+                <span class="font-extrabold text-slate-900">x2</span>
               </label>
 
               <div id="vengeanceNegativeMods" class="hidden flex-wrap items-center gap-1.5">
@@ -536,18 +536,13 @@
             </div>
           </div>
 
-          <!-- Special Status / Flip 7 / Bust -->
+          <!-- Special Status / Flip 7 -->
           <div>
             <label class="text-xs font-semibold text-slate-300">3. Status &amp; Rules:</label>
             <div class="flex flex-wrap gap-2 mt-1">
-              <label class="flex items-center gap-1.5 bg-slate-700 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer">
-                <input type="checkbox" id="flip7Bonus" onchange="calculateScore()" class="accent-amber-400">
+              <label id="flip7BonusContainer" class="flex items-center gap-1.5 bg-slate-700/60 border border-slate-600 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 cursor-default select-none transition">
+                <input type="checkbox" id="flip7Bonus" disabled class="accent-amber-400 pointer-events-none">
                 <span>Flip 7 Bonus (+15 pts)</span>
-              </label>
-
-              <label class="flex items-center gap-1.5 bg-red-950/60 border border-red-800 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer">
-                <input type="checkbox" id="bustCheck" onchange="handleBustToggle()" class="accent-red-500">
-                <span id="bustCheckboxLabel" class="text-red-400 font-semibold">Busted (0 pts)</span>
               </label>
 
               <label id="brutalModeContainer" class="hidden items-center gap-1.5 bg-purple-950/60 border border-purple-800 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer">
@@ -1069,9 +1064,7 @@
       if (enabled) {
         showWhistlerGif();
       }
-      if (document.getElementById('bustCheck').checked) {
-        handleBustToggle();
-      } else if (scoringInputMode === 'calc') {
+      if (scoringInputMode === 'calc') {
         calculateScore();
       }
       syncState();
@@ -1401,8 +1394,7 @@
       document.getElementById('cardCount').innerText = '0';
       document.getElementById('modDiv2').checked = false;
       document.getElementById('modX2').checked = false;
-      document.getElementById('flip7Bonus').checked = false;
-      document.getElementById('bustCheck').checked = false;
+      updateHandDisplay();
       calculateScore();
     }
 
@@ -1514,16 +1506,14 @@
       
       const count = currentSelectedNumbers.length + (hasSecond13 ? 1 : 0);
       document.getElementById('cardCount').innerText = count;
-      document.getElementById('flip7Bonus').checked = (count === 7);
-    }
-
-    function handleBustToggle() {
-      const isBust = document.getElementById('bustCheck').checked;
-      if (isBust) {
-        document.getElementById('calculatedTotal').innerText = "0";
-        document.getElementById('formulaPreview').innerText = getBustFormulaText();
-      } else {
-        calculateScore();
+      const isFlip7 = (count === 7);
+      const flip7Checkbox = document.getElementById('flip7Bonus');
+      const flip7Container = document.getElementById('flip7BonusContainer');
+      if (flip7Checkbox) flip7Checkbox.checked = isFlip7;
+      if (flip7Container) {
+        flip7Container.className = isFlip7
+          ? "flex items-center gap-1.5 bg-amber-500/20 border border-amber-400 px-2.5 py-1.5 rounded-lg text-xs text-amber-300 font-bold cursor-default select-none transition shadow-sm"
+          : "flex items-center gap-1.5 bg-slate-700/60 border border-slate-600 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 cursor-default select-none transition";
       }
     }
 
@@ -1532,14 +1522,11 @@
         updateManualScore();
         return;
       }
-      if (document.getElementById('bustCheck').checked) {
-        handleBustToggle();
-        return;
-      }
 
       const isVengeance = (gameState.mode === 'vengeance');
       const hasZero = currentSelectedNumbers.includes(0);
-      const isFlip7 = document.getElementById('flip7Bonus').checked;
+      const count = currentSelectedNumbers.length + (hasSecond13 ? 1 : 0);
+      const isFlip7 = (count === 7);
 
       if (isVengeance && hasZero && !isFlip7) {
         document.getElementById('calculatedTotal').innerText = "0";
