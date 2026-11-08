@@ -209,9 +209,14 @@
       <h2 id="amazeWinnerHeading" class="text-2xl md:text-3xl font-black text-amber-400 tracking-wide uppercase"></h2>
       <p class="text-xl md:text-2xl font-black text-pink-400 tracking-widest uppercase">Amaze, Amaze, Amaze!</p>
       <p class="text-xs text-slate-300">Victory achieved! All hail the new champion.</p>
-      <button onclick="dismissAmazeBanner()" class="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-sm transition tracking-wider uppercase shadow-lg shadow-amber-500/20 active:scale-98">
-        Continue Game
-      </button>
+      <div class="flex flex-col sm:flex-row gap-2 pt-1">
+        <button onclick="startNextGameFromBanner()" class="flex-1 py-2.5 px-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs transition tracking-wider uppercase shadow-lg shadow-emerald-500/20 active:scale-98">
+          🏆 Start Next Game
+        </button>
+        <button onclick="dismissAmazeBanner()" class="flex-1 py-2.5 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs transition tracking-wider uppercase shadow-lg shadow-amber-500/20 active:scale-98">
+          Keep Playing
+        </button>
+      </div>
     </div>
   </div>
 
@@ -495,9 +500,14 @@
             </button>
           </div>
 
-          <div class="text-xs text-slate-400 mt-1 flex justify-between">
+          <div class="text-xs text-slate-400 mt-1 flex items-center justify-between">
             <span>Hand: <span id="selectedNumbers" class="text-amber-300 font-mono">None</span></span>
-            <span>Cards: <span id="cardCount" class="font-bold text-amber-400">0</span>/7</span>
+            <div class="flex items-center gap-2">
+              <span>Cards: <span id="cardCount" class="font-bold text-amber-400">0</span>/7</span>
+              <button type="button" onclick="clearCalculatorHand()" class="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white text-[11px] font-semibold border border-slate-600 transition active:scale-95" title="Clear selected cards and modifiers">
+                Clear
+              </button>
+            </div>
           </div>
         </div>
 
@@ -582,6 +592,10 @@
             Add to Score
           </button>
 
+          <button id="quickBustBtn" onclick="commitRoundScore(0)" class="px-3 py-1.5 bg-red-950/80 hover:bg-red-900 border border-red-700 disabled:opacity-50 disabled:pointer-events-none text-red-200 font-bold text-xs rounded-lg transition whitespace-nowrap shadow-sm active:scale-95" title="Immediately log 0 points for this round">
+            💥 Bust (0)
+          </button>
+
           <!-- Undo option for scores added to other players -->
           <button id="otherPlayerUndoBtn" onclick="undoOtherPlayerScore()" class="hidden items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-lg transition shadow-sm active:scale-95 whitespace-nowrap" title="Undo the score you just added to another player">
             <span>↩ Undo</span>
@@ -627,6 +641,7 @@
       targetScore: 200,
       whistlerRules: false,
       brutalMode: false,
+      dealerOffset: 0,
       timestamp: 0
     };
 
@@ -637,9 +652,13 @@
       if (!state.targetScore || isNaN(state.targetScore)) state.targetScore = 200;
       state.whistlerRules = Boolean(state.whistlerRules);
       state.brutalMode = Boolean(state.brutalMode);
+      if (typeof state.dealerOffset !== 'number' || isNaN(state.dealerOffset) || state.dealerOffset < 0) {
+        state.dealerOffset = 0;
+      }
       state.players.forEach(p => {
         if (!p.id) p.id = generatePlayerId();
         if (!Array.isArray(p.rounds)) p.rounds = [];
+        if (typeof p.wins !== 'number' || isNaN(p.wins) || p.wins < 0) p.wins = 0;
       });
     }
 
@@ -1074,6 +1093,11 @@
 
       const bustPresetBtn = document.getElementById('manualBustPresetBtn');
       if (bustPresetBtn) bustPresetBtn.innerText = getBustPresetBtnText();
+
+      const quickBustBtn = document.getElementById('quickBustBtn');
+      if (quickBustBtn) {
+        quickBustBtn.innerText = active ? '💥 Busted Bitch (0)' : '💥 Bust (0)';
+      }
     }
 
     function setInputMode(mode) {
@@ -1363,6 +1387,34 @@
       else selectedNegativeMods.push(val);
       renderModifierButtons();
       calculateScore();
+    }
+
+    function clearCalculatorHand() {
+      currentSelectedNumbers = [];
+      selectedPositiveMods = [];
+      selectedNegativeMods = [];
+      hasSecond13 = false;
+      syncLucky13ButtonUI();
+      renderNumberButtons();
+      renderModifierButtons();
+      document.getElementById('selectedNumbers').innerText = 'None';
+      document.getElementById('cardCount').innerText = '0';
+      document.getElementById('modDiv2').checked = false;
+      document.getElementById('modX2').checked = false;
+      document.getElementById('flip7Bonus').checked = false;
+      document.getElementById('bustCheck').checked = false;
+      calculateScore();
+    }
+
+    async function setCurrentDealer(playerIdx) {
+      if (!gameState.players || gameState.players.length === 0) return;
+      const n = gameState.players.length;
+      const roundCounts = gameState.players.map(p => (p.rounds || []).length);
+      const minRounds = Math.min(...roundCounts);
+      gameState.dealerOffset = ((playerIdx - (minRounds % n)) + n) % n;
+      renderScoreboard();
+      await syncState();
+      showToast(`🃏 ${gameState.players[playerIdx].name} set as current dealer`, "info");
     }
 
     function toggleBrutalMode(enabled) {
@@ -1674,6 +1726,7 @@
       const maxRounds = Math.max(0, ...roundCounts);
       const minRounds = Math.min(...roundCounts);
       const isMidRound = (maxRounds > 0 && minRounds < maxRounds);
+      const currentDealerIdx = ((gameState.dealerOffset || 0) + minRounds) % gameState.players.length;
 
       if (roundBadge) {
         if (maxRounds === 0) {
@@ -1697,8 +1750,10 @@
         const pRoundCount = roundCounts[idx];
         const hasWon = total >= target;
         const isLeader = (total > 0 && total === maxTotal);
+        const isDealer = (idx === currentDealerIdx);
         const needsScoreForCurrentRound = (isMidRound && pRoundCount < maxRounds);
         const pointsNeeded = Math.max(0, target - total);
+        const wins = p.wins || 0;
 
         if (hasWon && total > highestWinningScore) {
           highestWinningScore = total;
@@ -1725,6 +1780,8 @@
                 </svg>
               </button>
               ${isMe ? '<span class="text-xs font-black text-sky-200 bg-sky-500/30 border border-sky-400/50 px-2 py-0.5 rounded-full shadow-sm tracking-wide">You</span>' : ''}
+              ${wins > 0 ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-300 text-[10px] font-bold" title="${wins} game${wins === 1 ? '' : 's'} won in this room">🏆 ${wins}</span>` : ''}
+              ${isDealer ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-indigo-500/25 border border-indigo-400/50 text-indigo-200 text-[10px] font-bold tracking-wide" title="Current Dealer for Round ${minRounds + 1}">🃏 Dealer</span>` : `<button onclick="setCurrentDealer(${idx})" class="text-[11px] opacity-35 hover:opacity-100 transition px-1" title="Set ${escapeHtml(p.name)} as current dealer">🃏</button>`}
               ${hasWon ? '<span class="text-amber-400 font-bold text-xs bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.5 rounded ml-1">Winner!</span>' : ''}
               ${needsScoreForCurrentRound ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 text-[10px] font-bold tracking-wide" title="Waiting for Round ${pRoundCount + 1} score">⏳ Needs R${pRoundCount + 1}</span>` : ''}
             </div>
@@ -2269,27 +2326,61 @@
       }
     }
 
-    async function promptResetGame() {
-      const confirmed = await showModal({
-        title: "Reset All Scores",
-        message: "Reset all player round history and scores back to 0 for this room?",
-        confirmText: "Reset Scores",
-        cancelText: "Cancel"
-      });
+    async function awardWinnerAndResetRounds() {
+      isPushing = true;
+      await pullLatestRemoteState();
+      const target = gameState.targetScore || 200;
+      const totals = (gameState.players || []).map(p => (p.rounds || []).reduce((a, b) => a + b, 0));
+      const maxTotal = Math.max(0, ...totals);
+      let winnerNames = [];
 
-      if (confirmed) {
-        isPushing = true;
-        await pullLatestRemoteState();
-        gameState.players.forEach(p => p.rounds = []);
-        celebratedWinnerId = null;
-        dismissAmazeBanner();
-        renderScoreboard();
-        await syncState();
+      if (maxTotal >= target) {
+        gameState.players.forEach((p, idx) => {
+          if (totals[idx] === maxTotal) {
+            p.wins = (p.wins || 0) + 1;
+            winnerNames.push(p.name);
+          }
+        });
+      }
+
+      gameState.players.forEach(p => p.rounds = []);
+      if (gameState.players.length > 0) {
+        gameState.dealerOffset = ((gameState.dealerOffset || 0) + 1) % gameState.players.length;
+      }
+      celebratedWinnerId = null;
+      dismissAmazeBanner();
+      renderScoreboard();
+      await syncState();
+
+      if (winnerNames.length > 0) {
+        showToast(`🏆 +1 Win awarded to ${winnerNames.join(' & ')}! New game started`, "success");
+      } else {
         showToast("Match scores reset to 0", "info");
       }
     }
 
-    async function commitRoundScore() {
+    async function startNextGameFromBanner() {
+      await awardWinnerAndResetRounds();
+    }
+
+    async function promptResetGame() {
+      const target = gameState.targetScore || 200;
+      const hasWinner = (gameState.players || []).some(p => (p.rounds || []).reduce((a, b) => a + b, 0) >= target);
+      const confirmed = await showModal({
+        title: hasWinner ? "Start Next Game" : "Reset All Scores",
+        message: hasWinner
+          ? "Award +1 🏆 Trophy to the winner and reset all round scores to 0 for the next game?"
+          : "Reset all player round history and scores back to 0 for this room?",
+        confirmText: hasWinner ? "🏆 Award Win & Reset" : "Reset Scores",
+        cancelText: "Cancel"
+      });
+
+      if (confirmed) {
+        await awardWinnerAndResetRounds();
+      }
+    }
+
+    async function commitRoundScore(overrideScore = null) {
       if (isCommittingScore) return;
       const pIdx = getSelectedPlayerIndex();
       if (pIdx === null || isNaN(pIdx)) {
@@ -2304,12 +2395,16 @@
         (myPlayerId && targetPlayerId !== myPlayerId) ||
         (!myPlayerId && myPlayerName && targetPlayerName.toLowerCase() !== myPlayerName.toLowerCase())
       );
-      const score = parseInt(document.getElementById('calculatedTotal').innerText, 10);
+      const score = (typeof overrideScore === 'number')
+        ? overrideScore
+        : parseInt(document.getElementById('calculatedTotal').innerText, 10);
 
       isCommittingScore = true;
       isPushing = true;
       const commitBtn = document.getElementById('commitScoreBtn');
+      const quickBustBtn = document.getElementById('quickBustBtn');
       if (commitBtn) commitBtn.disabled = true;
+      if (quickBustBtn) quickBustBtn.disabled = true;
 
       try {
         // Race condition protection: fetch fresh remote state before committing
@@ -2347,20 +2442,7 @@
           document.getElementById('manualScoreInput').value = '';
           updateManualScore();
         } else {
-          currentSelectedNumbers = [];
-          selectedPositiveMods = [];
-          selectedNegativeMods = [];
-          hasSecond13 = false;
-          syncLucky13ButtonUI();
-          renderNumberButtons();
-          renderModifierButtons();
-          document.getElementById('selectedNumbers').innerText = 'None';
-          document.getElementById('cardCount').innerText = '0';
-          document.getElementById('modDiv2').checked = false;
-          document.getElementById('modX2').checked = false;
-          document.getElementById('flip7Bonus').checked = false;
-          document.getElementById('bustCheck').checked = false;
-          calculateScore();
+          clearCalculatorHand();
         }
 
         // Default back to "You" on this device
@@ -2378,6 +2460,7 @@
         isCommittingScore = false;
         isPushing = false;
         if (commitBtn) commitBtn.disabled = false;
+        if (quickBustBtn) quickBustBtn.disabled = false;
       }
     }
 
