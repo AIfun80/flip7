@@ -2416,12 +2416,15 @@
         desc: "Tap Share next to the Room code so friends can scan the QR code to join. Tap your number cards and press Add to Score.",
         mockup: `
           <div class="space-y-3">
-            <div class="flex items-center justify-between bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-700 text-xs">
-              <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-700 text-xs">
+              <div class="flex items-center gap-2 min-w-0">
                 <span class="text-slate-400 font-semibold uppercase">Room:</span>
-                <span class="font-mono font-bold text-amber-300">F7_89AB12</span>
+                <span class="font-mono font-bold text-amber-300 truncate">F7_K4M9P2X7Q1</span>
               </div>
-              <span class="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs">📱 Share QR</span>
+              <span class="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs inline-flex items-center gap-1 shrink-0">
+                <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24"><path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm8-12v8h8V3h-8zm6 6h-4V5h4v4zm-5.99 4h2v2h-2v-2zm2 2h2v2h-2v-2zm-2 2h2v2h-2v-2zm4 0h2v2h-2v-2zm2 2h2v2h-2v-2zm-4 0h2v2h-2v-2zm2-6h2v2h-2v-2zm2 2h2v2h-2v-2z"/></svg>
+                <span>Share</span>
+              </span>
             </div>
             <div class="guide-highlight bg-slate-800/95 p-3 rounded-xl border border-amber-500/80 space-y-2.5 shadow-lg">
               <div class="text-[11px] font-bold text-slate-300">1. Number Cards in Line:</div>
@@ -2440,10 +2443,10 @@
                 <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">11</span>
                 <span class="py-1.5 bg-slate-700 text-center rounded text-xs font-bold text-slate-300">12</span>
               </div>
-              <div class="flex items-center justify-between pt-1">
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
                 <span class="text-xs font-bold text-amber-400">Round Total: 16 pts</span>
-                <button class="px-3.5 py-1.5 bg-amber-500 text-slate-950 font-black text-xs rounded-lg shadow-md pointer-events-none">
-                  Add to Score ↵
+                <button class="px-3.5 py-1.5 bg-amber-500 text-slate-900 font-bold text-xs rounded-lg shadow-sm pointer-events-none">
+                  Add to Score
                 </button>
               </div>
             </div>
@@ -2455,11 +2458,11 @@
         desc: "Switch between Standard rules (+2 to +10, x2) and Vengeance rules (Lucky 13, /2, -2 to -10, Brutal Mode).",
         mockup: `
           <div class="space-y-2.5">
-            <div class="guide-highlight bg-slate-800/90 p-2.5 rounded-xl border border-amber-500/80 flex items-center justify-between">
+            <div class="guide-highlight bg-slate-800/90 p-2.5 rounded-xl border border-amber-500/80 flex flex-wrap items-center justify-between gap-2">
               <span class="text-xs text-slate-300 font-semibold">Game Mode:</span>
               <div class="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700 text-xs">
-                <span class="px-2 py-0.5 rounded font-bold text-slate-400">Standard</span>
-                <span class="px-2 py-0.5 rounded font-bold bg-red-600 text-white shadow-sm">Vengeance</span>
+                <span class="px-2.5 py-1 rounded font-bold text-slate-400">Standard</span>
+                <span class="px-2.5 py-1 rounded font-bold bg-red-600 text-white shadow-sm">Vengeance</span>
               </div>
             </div>
           </div>
@@ -2472,8 +2475,8 @@
           <div class="space-y-2">
             <div class="guide-highlight bg-slate-800/90 p-3 rounded-xl border border-amber-500/80 space-y-2.5">
               <div class="flex flex-wrap items-center gap-1.5">
-                <span class="bg-emerald-500 border border-emerald-300 px-2.5 py-1 rounded-lg text-xs font-extrabold text-slate-950">
-                  ☑ x2
+                <span class="bg-emerald-950/75 border border-emerald-500/60 px-2.5 py-1 rounded-lg text-xs font-bold text-emerald-300">
+                  ☐ x2
                 </span>
                 <span class="bg-slate-700 border border-amber-500/40 px-2 py-1 rounded-lg text-xs font-bold text-amber-300">+2</span>
                 <span class="bg-amber-500 border border-amber-300 px-2 py-1 rounded-lg text-xs font-extrabold text-slate-950">+4</span>
@@ -2481,7 +2484,7 @@
                 <span class="bg-amber-500 border border-amber-300 px-2 py-1 rounded-lg text-xs font-extrabold text-slate-950">+8</span>
                 <span class="bg-slate-700 border border-amber-500/40 px-2 py-1 rounded-lg text-xs font-bold text-amber-300">+10</span>
               </div>
-              <div class="flex items-center justify-between">
+              <div class="flex flex-wrap items-center justify-between gap-2">
                 <span class="bg-amber-500/20 border border-amber-400 px-2.5 py-1 rounded-lg text-xs text-amber-300 font-bold">
                   ☑ Flip 7 Bonus (+15 pts)
                 </span>
@@ -2496,11 +2499,11 @@
         desc: "Busted your hand? Tap the red 💥 Bust (0) button next to Add to Score to immediately log 0 points for the round.",
         mockup: `
           <div class="space-y-3">
-            <div class="guide-highlight bg-slate-900 border border-red-500/80 p-3 rounded-xl flex items-center justify-between gap-2">
+            <div class="guide-highlight bg-slate-900 border border-red-500/80 p-3 rounded-xl flex flex-wrap items-center justify-between gap-2">
               <span class="text-xs font-bold text-amber-400">Round Total: 0 pts</span>
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 <span class="px-3 py-1.5 bg-amber-500 text-slate-900 font-bold text-xs rounded-lg opacity-60">Add to Score</span>
-                <span class="px-3 py-1.5 bg-red-950 border-2 border-red-500 text-red-200 font-bold text-xs rounded-lg shadow-lg">💥 Bust (0)</span>
+                <span class="px-3 py-1.5 bg-red-950/80 border border-red-700 text-red-200 font-bold text-xs rounded-lg shadow-sm">💥 Bust (0)</span>
               </div>
             </div>
           </div>
@@ -2508,12 +2511,12 @@
       },
       {
         title: "5. Drag Seating Order, Dealer & Manual Score",
-        desc: "Drag any player row by its ⋮⋮ handle to match your table seating so 🃏 Dealer rotates in order, or switch to Manual Score to type totals directly.",
+        desc: "Hold & drag any player row by its ⋮⋮ handle to match your table seating so 🃏 Dealer rotates in order, or switch to Manual Score to type totals directly.",
         mockup: `
           <div class="space-y-2.5">
-            <div class="bg-slate-800/90 border border-slate-700 p-2.5 rounded-xl flex items-center justify-between text-xs">
-              <div class="flex items-center gap-1.5">
-                <span class="text-slate-400 font-bold">⋮⋮</span>
+            <div class="bg-slate-800/90 border border-slate-700 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="inline-flex items-center justify-center w-6 h-6 rounded-md bg-slate-900/80 border border-slate-700 text-slate-300 font-bold text-xs">⋮⋮</span>
                 <span>👑</span>
                 <span class="font-bold text-sky-200">Chris</span>
                 <span class="px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-300 text-[10px] font-bold">🏆 2</span>
@@ -2521,12 +2524,12 @@
               </div>
               <span class="text-[11px] text-amber-300 font-medium">Drag ⋮⋮ to reorder</span>
             </div>
-            <div class="guide-highlight bg-slate-800/90 border border-amber-500/80 p-2.5 rounded-xl flex items-center justify-between gap-3">
+            <div class="guide-highlight bg-slate-800/90 border border-amber-500/80 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-2">
               <span class="text-xs text-slate-300 font-semibold">Manual Score Tab:</span>
-              <div class="flex items-center gap-1.5">
-                <span class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-base font-mono font-bold text-amber-400">42</span>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="bg-slate-900 border border-slate-600 rounded-lg px-2.5 py-1 text-base font-mono font-bold text-amber-400">42</span>
                 <span class="px-2 py-1 bg-red-950/70 border border-red-800 text-red-300 rounded-lg text-xs font-bold">Bust (0)</span>
-                <span class="px-2 py-1 bg-slate-700 text-slate-200 rounded-lg text-xs font-bold">+15</span>
+                <span class="px-2 py-1 bg-slate-800 border border-slate-600 text-slate-300 rounded-lg text-xs font-bold">+15</span>
               </div>
             </div>
           </div>
