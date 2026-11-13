@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.gifer.com; font-src 'self' data:; connect-src 'self' https://flip7app-dbdfe-default-rtdb.firebaseio.com; object-src 'none'; base-uri 'none'; form-action 'none';">
   <title>Flip 7 Calculator</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" integrity="sha384-lQXOAyZwHXE55JFyrOMB7nY2Wv+m5ZWNtJcHrd1rceRQXAYNLak8ukN5TjBTcIwz" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <style>
     html.she-old {
       font-size: 120%;
@@ -252,7 +254,7 @@
       <div class="pt-2 border-t border-slate-700/60 space-y-2">
         <label class="text-xs font-semibold text-slate-300">Recover Missing / Corrected Round:</label>
         <div class="flex flex-wrap items-center gap-2">
-          <input type="number" id="historyAddRoundInput" placeholder="Points to add (e.g. 24)" onkeydown="if(event.key==='Enter') submitRecoveredRound()" class="flex-1 min-w-[140px] bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-amber-400 font-mono">
+          <input type="number" id="historyAddRoundInput" min="-500" max="1000" placeholder="Points to add (e.g. 24)" onkeydown="if(event.key==='Enter') submitRecoveredRound()" class="flex-1 min-w-[140px] bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-amber-400 font-mono">
           <button onclick="submitRecoveredRound()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition active:scale-95 whitespace-nowrap shadow-sm">
             + Add Round
           </button>
@@ -270,7 +272,7 @@
   <!-- Fullscreen Whistler GIF Overlay -->
   <div id="whistlerGifOverlay" class="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center hidden p-2 sm:p-4 cursor-pointer select-none" onclick="dismissWhistlerGif()">
     <div class="relative w-full h-full max-h-[92vh] max-w-[96vw] flex items-center justify-center">
-      <img id="whistlerGifImg" src="https://i.gifer.com/pg.gif" onerror="this.onerror=null; this.src='https://i.gifer.com/pg.gif';" alt="Whistler Rules" class="w-full h-full object-contain rounded-2xl shadow-2xl pointer-events-none">
+      <img id="whistlerGifImg" src="https://i.gifer.com/pg.gif" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='https://i.gifer.com/pg.gif';" alt="Whistler Rules" class="w-full h-full object-contain rounded-2xl shadow-2xl pointer-events-none">
       <div class="absolute top-3 right-3 flex items-center gap-2 pointer-events-auto">
         <span class="bg-black/70 text-pink-300 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-pink-500/30 shadow-md">
           Auto-closing...
@@ -307,7 +309,7 @@
       <h3 id="modalTitle" class="text-base font-bold text-white"></h3>
       <p id="modalMessage" class="text-xs text-slate-300 leading-relaxed"></p>
       <div id="modalInputContainer" class="hidden">
-        <input type="text" id="modalInput" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-400 font-medium">
+        <input type="text" id="modalInput" maxlength="20" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-400 font-medium">
       </div>
       <div class="flex flex-wrap items-center justify-end gap-2 pt-2">
         <button id="modalCancelBtn" onclick="closeModal(false)" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs font-bold rounded-lg text-slate-300 transition">Cancel</button>
@@ -693,6 +695,28 @@
   <script>
     const FIREBASE_BASE_URL = "https://flip7app-dbdfe-default-rtdb.firebaseio.com".replace(/\/+$/, "");
 
+    function generateSecureToken(length = 10) {
+      const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      const maxValidByte = 256 - (256 % alphabet.length);
+      const out = [];
+      if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+        const buf = new Uint8Array(length * 2);
+        while (out.length < length) {
+          window.crypto.getRandomValues(buf);
+          for (let i = 0; i < buf.length && out.length < length; i++) {
+            if (buf[i] < maxValidByte) {
+              out.push(alphabet[buf[i] % alphabet.length]);
+            }
+          }
+        }
+        return out.join('');
+      }
+      for (let i = 0; i < length; i++) {
+        out.push(alphabet[Math.floor(Math.random() * alphabet.length)]);
+      }
+      return out.join('');
+    }
+
     let roomId = null;
     try {
       const urlParams = new URLSearchParams(window.location.search);
@@ -703,7 +727,7 @@
     } catch (e) {}
 
     if (!roomId) {
-      roomId = 'f7_' + Math.random().toString(36).substring(2, 8).toLowerCase();
+      roomId = 'f7_' + generateSecureToken(10);
       try {
         if (window.location.protocol !== 'blob:' && window.location.protocol !== 'about:') {
           window.history.replaceState(null, '', `?room=${roomId}`);
@@ -715,8 +739,30 @@
     let STORAGE_KEY = `flip7_cache_${roomId}`;
     let DB_URL = `${FIREBASE_BASE_URL}/rooms/${encodeURIComponent(roomId)}.json`;
 
+    const PLAYER_NAME_MAX_LEN = 20;
+    const MAX_PLAYERS = 10;
+    const MAX_ROUNDS_PER_PLAYER = 200;
+    const MIN_ROUND_SCORE = -5000;
+    const MAX_ROUND_SCORE = 5000;
+    const MIN_TARGET_SCORE = 50;
+    const MAX_TARGET_SCORE = 2000;
+    const ALLOWED_TARGET_SCORES = new Set([150, 200, 250, 300]);
+
     function generatePlayerId() {
-      return 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+      return 'p_' + generateSecureToken(12);
+    }
+
+    function sanitizePlayerName(rawName, fallback = 'Player') {
+      if (typeof rawName !== 'string') return fallback;
+      const trimmed = rawName.trim().slice(0, PLAYER_NAME_MAX_LEN);
+      return trimmed || fallback;
+    }
+
+    function sanitizeRoundScore(val) {
+      if (typeof val !== 'number' || !Number.isFinite(val)) return null;
+      const intVal = Math.trunc(val);
+      if (intVal < MIN_ROUND_SCORE || intVal > MAX_ROUND_SCORE) return null;
+      return intVal;
     }
 
     let gameState = {
@@ -730,19 +776,44 @@
     };
 
     function sanitizeGameState(state) {
-      if (!state || typeof state !== 'object') return;
-      if (!Array.isArray(state.players)) state.players = [];
+      if (!state || typeof state !== 'object' || Array.isArray(state)) return;
+      if (!Array.isArray(state.players)) {
+        state.players = [];
+      } else {
+        state.players = state.players
+          .filter(p => p && typeof p === 'object' && !Array.isArray(p))
+          .slice(0, MAX_PLAYERS);
+      }
       if (state.mode !== 'vengeance' && state.mode !== 'standard') state.mode = 'standard';
-      if (!state.targetScore || isNaN(state.targetScore)) state.targetScore = 200;
+      const parsedTarget = typeof state.targetScore === 'number' && Number.isFinite(state.targetScore)
+        ? Math.trunc(state.targetScore)
+        : 200;
+      state.targetScore = (parsedTarget >= MIN_TARGET_SCORE && parsedTarget <= MAX_TARGET_SCORE) ? parsedTarget : 200;
       state.whistlerRules = Boolean(state.whistlerRules);
       state.brutalMode = Boolean(state.brutalMode);
-      if (typeof state.dealerOffset !== 'number' || isNaN(state.dealerOffset) || state.dealerOffset < 0) {
-        state.dealerOffset = 0;
-      }
-      state.players.forEach(p => {
-        if (!p.id) p.id = generatePlayerId();
-        if (!Array.isArray(p.rounds)) p.rounds = [];
-        if (typeof p.wins !== 'number' || isNaN(p.wins) || p.wins < 0) p.wins = 0;
+      const rawDealerOffset = typeof state.dealerOffset === 'number' && Number.isFinite(state.dealerOffset)
+        ? Math.trunc(state.dealerOffset)
+        : 0;
+      state.dealerOffset = (rawDealerOffset >= 0 && rawDealerOffset < MAX_PLAYERS) ? rawDealerOffset : 0;
+      state.timestamp = (typeof state.timestamp === 'number' && Number.isFinite(state.timestamp) && state.timestamp >= 0)
+        ? state.timestamp
+        : 0;
+
+      state.players.forEach((p, idx) => {
+        if (typeof p.id !== 'string' || !/^[a-zA-Z0-9_-]{3,40}$/.test(p.id)) {
+          p.id = generatePlayerId();
+        }
+        p.name = sanitizePlayerName(p.name, `Player ${idx + 1}`);
+        if (!Array.isArray(p.rounds)) {
+          p.rounds = [];
+        } else {
+          p.rounds = p.rounds
+            .slice(0, MAX_ROUNDS_PER_PLAYER)
+            .map(sanitizeRoundScore)
+            .filter(v => v !== null);
+        }
+        const rawWins = typeof p.wins === 'number' && Number.isFinite(p.wins) ? Math.trunc(p.wins) : 0;
+        p.wins = (rawWins >= 0 && rawWins <= 10000) ? rawWins : 0;
       });
     }
 
@@ -983,10 +1054,10 @@
 
       const rows = [];
       if (maxHand > 0) {
-        rows.push(`<div class="flex items-center justify-between gap-2"><span class="text-slate-400">🔥 Biggest Hand:</span><span class="font-bold text-amber-300">${maxHand} pts (${escapeHtml(bestHandPlayers.join(', '))})</span></div>`);
+        rows.push(`<div class="flex items-center justify-between gap-2"><span class="text-slate-400">🔥 Biggest Hand:</span><span class="font-bold text-amber-300">${escapeHtml(maxHand)} pts (${escapeHtml(bestHandPlayers.join(', '))})</span></div>`);
       }
       if (maxBusts > 0) {
-        rows.push(`<div class="flex items-center justify-between gap-2"><span class="text-slate-400">💀 Most Busts:</span><span class="font-bold text-red-300">${maxBusts} (${escapeHtml(mostBustPlayers.join(', '))})</span></div>`);
+        rows.push(`<div class="flex items-center justify-between gap-2"><span class="text-slate-400">💀 Most Busts:</span><span class="font-bold text-red-300">${escapeHtml(maxBusts)} (${escapeHtml(mostBustPlayers.join(', '))})</span></div>`);
       }
       if (winnerAvgText) {
         rows.push(`<div class="flex items-center justify-between gap-2"><span class="text-slate-400">⚡ Winner Pace:</span><span class="font-bold text-emerald-300">${escapeHtml(winnerAvgText)}</span></div>`);
@@ -1463,7 +1534,8 @@
     }
 
     function updateTargetScore(val) {
-      gameState.targetScore = parseInt(val, 10);
+      const parsed = parseInt(val, 10);
+      gameState.targetScore = ALLOWED_TARGET_SCORES.has(parsed) ? parsed : 200;
       document.getElementById('targetBadge').innerText = `(First to ${gameState.targetScore} pts)`;
       syncState();
     }
@@ -1920,7 +1992,7 @@
     }
 
     function escapeHtml(str) {
-      if (!str) return '';
+      if (str === null || str === undefined) return '';
       return String(str)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -2074,14 +2146,14 @@
           </td>
           <td class="py-1.5 px-1.5 sm:px-3 text-center align-middle whitespace-nowrap">
             <div class="inline-flex flex-col items-center justify-center bg-slate-900/75 border border-slate-700/70 rounded-lg px-2 sm:px-3 py-1 shadow-inner min-w-[3.5rem]">
-              <div class="font-mono text-lg sm:text-xl md:text-2xl font-black leading-tight ${hasWon ? 'text-amber-400' : 'text-amber-300'}">${total}</div>
-              <div class="text-[10px] font-sans font-semibold ${hasWon ? 'text-emerald-400' : 'text-slate-400'}">${hasWon ? '🎯 Goal!' : `${pointsNeeded} away`}</div>
+              <div class="font-mono text-lg sm:text-xl md:text-2xl font-black leading-tight ${hasWon ? 'text-amber-400' : 'text-amber-300'}">${escapeHtml(total)}</div>
+              <div class="text-[10px] font-sans font-semibold ${hasWon ? 'text-emerald-400' : 'text-slate-400'}">${hasWon ? '🎯 Goal!' : `${escapeHtml(pointsNeeded)} away`}</div>
             </div>
           </td>
           <td class="py-2 px-1.5 sm:px-3 text-slate-400 text-xs align-middle break-words">
             <button onclick="openRoundHistoryModal(${idx})" class="text-left hover:text-amber-300 transition group inline-flex flex-wrap items-center gap-1 break-words" title="Click to view and edit rounds">
               <span class="underline decoration-slate-600 group-hover:decoration-amber-300 underline-offset-2 font-mono break-words">
-                ${(p.rounds || []).join(' + ') || '0'}
+                ${(p.rounds || []).map(r => escapeHtml(r)).join(' + ') || '0'}
               </span>
               <span class="text-[10px] text-slate-500 group-hover:text-amber-400 shrink-0">✎</span>
             </button>
@@ -2522,7 +2594,7 @@
     async function submitNewIdentity() {
       const input = document.getElementById('identityNameInput');
       const rawName = input ? input.value : '';
-      const trimmed = (rawName || '').trim();
+      const trimmed = (rawName || '').trim().slice(0, PLAYER_NAME_MAX_LEN);
 
       if (!trimmed) {
         return showToast("Please enter a player name.", "error");
@@ -2565,7 +2637,7 @@
       });
 
       if (!name || !name.trim()) return;
-      const cleanName = name.trim();
+      const cleanName = name.trim().slice(0, PLAYER_NAME_MAX_LEN);
 
       isPushing = true;
       await pullLatestRemoteState();
@@ -2620,7 +2692,7 @@
       });
 
       if (newName === null) return;
-      const trimmed = newName.trim();
+      const trimmed = newName.trim().slice(0, PLAYER_NAME_MAX_LEN);
       if (!trimmed) {
         return showToast("Player name cannot be empty.", "error");
       }
@@ -2987,11 +3059,12 @@
       }
 
       rounds.forEach((pts, rIdx) => {
+        const safeIdx = Number.isInteger(rIdx) ? rIdx : 0;
         const row = document.createElement('div');
         row.className = "flex items-center justify-between bg-slate-900/80 px-3 py-2 rounded-lg border border-slate-700/60 text-xs";
         row.innerHTML = `
-          <span class="text-slate-300 font-medium">Round ${rIdx + 1}: <span class="font-mono font-bold text-amber-300">${pts} pts</span></span>
-          <button onclick="deleteSpecificRound(${rIdx})" class="text-red-400 hover:text-red-300 font-bold px-2 py-0.5 rounded hover:bg-slate-800 transition" title="Delete this round">
+          <span class="text-slate-300 font-medium">Round ${escapeHtml(safeIdx + 1)}: <span class="font-mono font-bold text-amber-300">${escapeHtml(pts)} pts</span></span>
+          <button onclick="deleteSpecificRound(${safeIdx})" class="text-red-400 hover:text-red-300 font-bold px-2 py-0.5 rounded hover:bg-slate-800 transition" title="Delete this round">
             ✕ Delete
           </button>
         `;
@@ -3053,8 +3126,8 @@
       if (!initialPlayer) return;
       const input = document.getElementById('historyAddRoundInput');
       const val = parseInt(input.value, 10);
-      if (isNaN(val)) {
-        return showToast("Please enter a valid number of points.", "error");
+      if (isNaN(val) || val < -500 || val > 1000) {
+        return showToast("Please enter points between -500 and 1000.", "error");
       }
 
       isPushing = true;
@@ -3065,6 +3138,10 @@
         return;
       }
       if (!player.rounds) player.rounds = [];
+      if (player.rounds.length >= MAX_ROUNDS_PER_PLAYER) {
+        isPushing = false;
+        return showToast(`Maximum ${MAX_ROUNDS_PER_PLAYER} rounds per player reached.`, "error");
+      }
       player.rounds.push(val);
       input.value = '';
 
@@ -3077,7 +3154,7 @@
     }
 
     function createNewRoom() {
-      const newRoom = 'f7_' + Math.random().toString(36).substring(2, 8).toLowerCase();
+      const newRoom = 'f7_' + generateSecureToken(10);
       try {
         if (window.location.protocol !== 'blob:' && window.location.protocol !== 'about:' && window.location.pathname) {
           const targetUrl = new URL(window.location.href);
@@ -3089,7 +3166,7 @@
 
       roomId = newRoom;
       STORAGE_KEY = `flip7_cache_${roomId}`;
-      DB_URL = `${FIREBASE_BASE_URL}/rooms/${roomId}.json`;
+      DB_URL = `${FIREBASE_BASE_URL}/rooms/${encodeURIComponent(roomId)}.json`;
       document.getElementById('roomDisplay').innerText = roomId.toUpperCase();
       myPlayerId = null;
       myPlayerName = null;
@@ -3104,6 +3181,8 @@
         mode: 'standard',
         targetScore: 200,
         whistlerRules: false,
+        brutalMode: false,
+        dealerOffset: 0,
         timestamp: Date.now()
       };
       celebratedWinnerId = null;
@@ -3161,11 +3240,10 @@
             svg.setAttribute('height', '100%');
           }
         } else {
-          const img = document.createElement('img');
-          img.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(shareUrl)}`;
-          img.alt = "Room QR Code";
-          img.className = "w-full h-full object-contain";
-          qrContainer.appendChild(img);
+          const fallbackMsg = document.createElement('div');
+          fallbackMsg.className = "text-xs text-slate-600 font-medium text-center px-3 py-6";
+          fallbackMsg.textContent = "QR generator unavailable offline. Use Copy Link below.";
+          qrContainer.appendChild(fallbackMsg);
         }
       }
 
