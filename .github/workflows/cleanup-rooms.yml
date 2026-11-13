@@ -1,0 +1,103 @@
+name: Cleanup Expired Flip 7 Rooms
+
+on:
+  schedule:
+    - cron: '0 9 * * 0' # Weekly on Sundays at 09:00 UTC
+  workflow_dispatch:      # Allow manual runs from the Actions tab
+
+permissions: {}
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Purge rooms older than 48 hours
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          node << 'EOF'
+          const crypto = require('crypto');
+
+          async function main() {
+            const rawSecret = process.env.FIREBASE_SERVICE_ACCOUNT;
+            if (!rawSecret) {
+              throw new Error('FIREBASE_SERVICE_ACCOUNT secret is not configured.');
+            }
+
+            const sa = JSON.parse(rawSecret);
+            const nowSec = Math.floor(Date.now() / 1000);
+            const b64 = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64url');
+
+            const header = b64({ alg: 'RS256', typ: 'JWT' });
+            const payload = b64({
+              iss: sa.client_email,
+              scope: 'https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email',
+              aud: 'https://oauth2.googleapis.com/token',
+              iat: nowSec,
+              exp: nowSec + 3600,
+            });
+
+            const signer = crypto.createSign('RSA-SHA256');
+            signer.update(`${header}.${payload}`);
+            const jwt = `${header}.${payload}.${signer.sign(sa.private_key, 'base64url')}`;
+
+            const tokRes = await fetch('https://oauth2.googleapis.com/token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+            });
+            if (!tokRes.ok) {
+              throw new Error(`OAuth token exchange failed: HTTP ${tokRes.status}`);
+            }
+            const { access_token } = await tokRes.json();
+            if (!access_token) {
+              throw new Error('OAuth response did not include access_token');
+            }
+
+            const dbBase = 'https://flip7app-dbdfe-default-rtdb.firebaseio.com';
+            const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+            const headers = { Authorization: `Bearer ${access_token}` };
+
+            const queryRes = await fetch(
+              `${dbBase}/rooms.json?orderBy=%22timestamp%22&endAt=${cutoff}`,
+              { headers }
+            );
+            if (!queryRes.ok) {
+              throw new Error(`Querying expired rooms failed: HTTP ${queryRes.status}`);
+            }
+
+            const expired = await queryRes.json();
+            if (!expired || typeof expired !== 'object') {
+              console.log('No expired rooms found.');
+              return;
+            }
+
+            const deletes = {};
+            for (const [id, room] of Object.entries(expired)) {
+              if (room && typeof room === 'object' && typeof room.timestamp === 'number' && room.timestamp <= cutoff) {
+                deletes[id] = null;
+              }
+            }
+
+            const count = Object.keys(deletes).length;
+            if (count === 0) {
+              console.log('No expired rooms found.');
+              return;
+            }
+
+            const patchRes = await fetch(`${dbBase}/rooms.json`, {
+              method: 'PATCH',
+              headers: { ...headers, 'Content-Type': 'application/json' },
+              body: JSON.stringify(deletes),
+            });
+            if (!patchRes.ok) {
+              throw new Error(`Batch delete failed: HTTP ${patchRes.status}`);
+            }
+            console.log(`Deleted ${count} expired room(s).`);
+          }
+
+          main().catch((err) => {
+            console.error(err.message || err);
+            process.exit(1);
+          });
+          EOF
