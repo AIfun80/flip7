@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.gifer.com; font-src 'self' data:; connect-src 'self' https://flip7app-dbdfe-default-rtdb.firebaseio.com; object-src 'none'; base-uri 'none'; form-action 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.gifer.com; font-src 'self' data:; connect-src 'self' https://flip7app-dbdfe-default-rtdb.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; object-src 'none'; base-uri 'none'; form-action 'none';">
   <title>Flip 7 Calculator</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" integrity="sha384-lQXOAyZwHXE55JFyrOMB7nY2Wv+m5ZWNtJcHrd1rceRQXAYNLak8ukN5TjBTcIwz" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -694,6 +694,115 @@
 
   <script>
     const FIREBASE_BASE_URL = "https://flip7app-dbdfe-default-rtdb.firebaseio.com".replace(/\/+$/, "");
+    const FIREBASE_WEB_API_KEY = "AIzaSyDFcsuWbtxOv7tx3onsDTOHFAghTIashRQ";
+    const AUTH_STORAGE_KEY = "flip7_firebase_auth_v1";
+
+    let cachedAuthSession = null;
+    try {
+      const savedAuth = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY));
+      if (savedAuth && typeof savedAuth.idToken === 'string' && typeof savedAuth.refreshToken === 'string') {
+        cachedAuthSession = savedAuth;
+      }
+    } catch (e) {}
+
+    let inFlightAuthPromise = null;
+
+    function persistAuthSession(session) {
+      cachedAuthSession = session;
+      try {
+        if (session) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+        else localStorage.removeItem(AUTH_STORAGE_KEY);
+      } catch (e) {}
+    }
+
+    async function requestAnonymousToken() {
+      if (!FIREBASE_WEB_API_KEY) return null;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      try {
+        // Prefer refreshing an existing anonymous session to avoid creating a new UID on every load
+        if (cachedAuthSession && cachedAuthSession.refreshToken) {
+          const refreshRes = await fetch(
+            `https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(FIREBASE_WEB_API_KEY)}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(cachedAuthSession.refreshToken)}`,
+              signal: controller.signal
+            }
+          );
+          if (refreshRes.ok) {
+            const data = await refreshRes.json();
+            if (data && data.id_token && data.refresh_token) {
+              const expiresSec = parseInt(data.expires_in, 10) || 3600;
+              const nextSession = {
+                idToken: data.id_token,
+                refreshToken: data.refresh_token,
+                expiresAt: Date.now() + Math.max(60, expiresSec - 120) * 1000
+              };
+              persistAuthSession(nextSession);
+              return nextSession.idToken;
+            }
+          }
+        }
+
+        const signUpRes = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(FIREBASE_WEB_API_KEY)}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ returnSecureToken: true }),
+            signal: controller.signal
+          }
+        );
+        if (!signUpRes.ok) return null;
+        const data = await signUpRes.json();
+        if (data && data.idToken && data.refreshToken) {
+          const expiresSec = parseInt(data.expiresIn, 10) || 3600;
+          const nextSession = {
+            idToken: data.idToken,
+            refreshToken: data.refreshToken,
+            expiresAt: Date.now() + Math.max(60, expiresSec - 120) * 1000
+          };
+          persistAuthSession(nextSession);
+          return nextSession.idToken;
+        }
+      } catch (e) {
+      } finally {
+        clearTimeout(timeoutId);
+      }
+      return null;
+    }
+
+    async function ensureFirebaseAuthToken(forceRefresh = false) {
+      if (!forceRefresh && cachedAuthSession && cachedAuthSession.idToken && Date.now() < (cachedAuthSession.expiresAt || 0)) {
+        return cachedAuthSession.idToken;
+      }
+      if (forceRefresh && cachedAuthSession) {
+        cachedAuthSession = { ...cachedAuthSession, idToken: null, expiresAt: 0 };
+      }
+      if (!inFlightAuthPromise) {
+        inFlightAuthPromise = requestAnonymousToken().finally(() => {
+          inFlightAuthPromise = null;
+        });
+      }
+      return inFlightAuthPromise;
+    }
+
+    async function fetchAuthorizedDb(options = {}) {
+      let token = await ensureFirebaseAuthToken(false);
+      let url = token ? `${DB_URL}?auth=${encodeURIComponent(token)}` : DB_URL;
+      let res = await fetch(url, options);
+      if (res.status === 401) {
+        persistAuthSession(cachedAuthSession ? { ...cachedAuthSession, idToken: null, expiresAt: 0 } : null);
+        token = await ensureFirebaseAuthToken(true);
+        if (token) {
+          url = `${DB_URL}?auth=${encodeURIComponent(token)}`;
+          res = await fetch(url, options);
+        }
+      }
+      return res;
+    }
 
     function generateSecureToken(length = 10) {
       const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -1377,7 +1486,7 @@
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3500);
       try {
-        const res = await fetch(DB_URL, {
+        const res = await fetchAuthorizedDb({
           cache: 'no-store',
           signal: controller.signal
         });
@@ -1402,7 +1511,7 @@
       const timeoutId = setTimeout(() => controller.abort(), 4000);
 
       try {
-        const res = await fetch(DB_URL, { 
+        const res = await fetchAuthorizedDb({ 
           cache: 'no-store',
           signal: controller.signal
         });
@@ -1444,7 +1553,7 @@
       const timeoutId = setTimeout(() => controller.abort(), 4000);
 
       try {
-        const res = await fetch(DB_URL, {
+        const res = await fetchAuthorizedDb({
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(gameState),
@@ -3293,26 +3402,6 @@
       showToast("Room link copied to clipboard", "success");
     }
 
-    const ROOM_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
-
-    async function cleanupExpiredRooms() {
-      try {
-        const cutoff = Date.now() - ROOM_TTL_MS;
-        const queryUrl = `${FIREBASE_BASE_URL}/rooms.json?orderBy=%22timestamp%22&endAt=${cutoff}`;
-        const res = await fetch(queryUrl, { cache: 'no-store' });
-        if (!res.ok) return;
-        const expiredRooms = await res.json();
-        if (!expiredRooms || typeof expiredRooms !== 'object') return;
-
-        const roomIdsToDelete = Object.keys(expiredRooms).filter(id => id !== roomId);
-        await Promise.allSettled(
-          roomIdsToDelete.map(id =>
-            fetch(`${FIREBASE_BASE_URL}/rooms/${encodeURIComponent(id)}.json`, { method: 'DELETE' })
-          )
-        );
-      } catch (e) {}
-    }
-
     // App Initialization
     applyModeUI();
     updateWhistlerUI();
@@ -3323,10 +3412,9 @@
     renderScoreboard();
     calculateScore();
 
-    // Start background sync with sequential polling and 48h room cleanup
+    // Start background sync with sequential polling
     fetchRemoteState();
     setupVisibilityOptimizedPolling();
-    cleanupExpiredRooms();
   </script>
 </body>
 </html>
