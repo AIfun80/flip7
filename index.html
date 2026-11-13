@@ -612,9 +612,9 @@
                 <span class="font-bold text-red-300">/2 (Cut in Half)</span>
               </label>
 
-              <label id="modX2Container" class="flex items-center gap-1.5 bg-emerald-300 hover:bg-emerald-200 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer border border-emerald-400 shadow-sm transition">
-                <input type="checkbox" id="modX2" onchange="calculateScore()" class="accent-emerald-700 shrink-0">
-                <span class="font-extrabold text-slate-900">x2</span>
+              <label id="modX2Container" class="flex items-center gap-1.5 bg-emerald-950/75 hover:bg-emerald-900/75 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer border border-emerald-500/60 shadow-sm transition">
+                <input type="checkbox" id="modX2" onchange="calculateScore()" class="accent-emerald-500 shrink-0">
+                <span id="modX2Text" class="font-bold text-emerald-300">x2</span>
               </label>
 
               <div id="vengeanceNegativeMods" class="hidden flex-wrap items-center gap-1.5">
@@ -1936,6 +1936,20 @@
       }
     }
 
+    function syncModX2UI(isX2) {
+      const container = document.getElementById('modX2Container');
+      const labelText = document.getElementById('modX2Text');
+      if (!container || !labelText) return;
+      const isHidden = container.classList.contains('hidden');
+      if (isX2) {
+        container.className = `${isHidden ? 'hidden' : 'flex'} items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer border border-emerald-300 shadow-sm transition`;
+        labelText.className = "font-extrabold text-slate-950";
+      } else {
+        container.className = `${isHidden ? 'hidden' : 'flex'} items-center gap-1.5 bg-emerald-950/75 hover:bg-emerald-900/75 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer border border-emerald-500/60 shadow-sm transition`;
+        labelText.className = "font-bold text-emerald-300";
+      }
+    }
+
     function calculateScore() {
       if (scoringInputMode === 'manual') {
         updateManualScore();
@@ -1988,6 +2002,7 @@
 
       } else {
         const isX2 = document.getElementById('modX2').checked;
+        syncModX2UI(isX2);
         const flatBonus = selectedPositiveMods.reduce((a, b) => a + b, 0);
         const flipBonus = isFlip7 ? 15 : 0;
 
@@ -2444,7 +2459,7 @@
           <div class="space-y-2">
             <div class="guide-highlight bg-slate-800/90 p-3 rounded-xl border border-amber-500/80 space-y-2.5">
               <div class="flex flex-wrap items-center gap-1.5">
-                <span class="bg-emerald-300 border border-emerald-400 px-2.5 py-1 rounded-lg text-xs font-extrabold text-slate-900">
+                <span class="bg-emerald-500 border border-emerald-300 px-2.5 py-1 rounded-lg text-xs font-extrabold text-slate-950">
                   ☑ x2
                 </span>
                 <span class="bg-slate-700 border border-amber-500/40 px-2 py-1 rounded-lg text-xs font-bold text-amber-300">+2</span>
