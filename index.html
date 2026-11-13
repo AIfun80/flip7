@@ -51,33 +51,53 @@
       }
     }
 
-    /* Phones with enlarged text: stack each standings row into a card so names never get squeezed */
+    /* Stack each standings row into a clean 2-row card on narrow screens or zoomed tablets so actions & scores never clip */
     @media (max-width: 640px) {
-      html.she-old .standings-table thead,
-      html.even-older .standings-table thead,
-      html.old-cunt .standings-table thead {
+      .standings-table thead {
         display: none;
       }
-      html.she-old .standings-table,
-      html.even-older .standings-table,
-      html.old-cunt .standings-table {
+      .standings-table,
+      #playerTableBody {
         display: block;
       }
-      html.she-old #playerTableBody,
-      html.even-older #playerTableBody,
-      html.old-cunt #playerTableBody {
-        display: block;
-      }
-      html.she-old #playerTableBody > tr,
-      html.even-older #playerTableBody > tr,
-      html.old-cunt #playerTableBody > tr {
+      #playerTableBody > tr {
         display: grid;
         grid-template-columns: auto minmax(0, 1fr) auto;
         align-items: center;
         gap: 0.35rem 0.5rem;
         padding: 0.6rem 0.25rem;
       }
-      html.she-old #playerTableBody > tr > td,
+      #playerTableBody > tr > td {
+        display: block;
+        width: auto !important;
+        min-width: 0;
+        padding: 0.15rem !important;
+      }
+      #playerTableBody > tr > td:first-child,
+      #playerTableBody > tr > td[colspan] {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      html.even-older .standings-table thead,
+      html.old-cunt .standings-table thead {
+        display: none;
+      }
+      html.even-older .standings-table,
+      html.old-cunt .standings-table,
+      html.even-older #playerTableBody,
+      html.old-cunt #playerTableBody {
+        display: block;
+      }
+      html.even-older #playerTableBody > tr,
+      html.old-cunt #playerTableBody > tr {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 0.4rem 0.75rem;
+        padding: 0.75rem 0.35rem;
+      }
       html.even-older #playerTableBody > tr > td,
       html.old-cunt #playerTableBody > tr > td {
         display: block;
@@ -85,12 +105,8 @@
         min-width: 0;
         padding: 0.15rem !important;
       }
-      html.she-old #playerTableBody > tr > td:first-child,
       html.even-older #playerTableBody > tr > td:first-child,
-      html.old-cunt #playerTableBody > tr > td:first-child {
-        grid-column: 1 / -1;
-      }
-      html.she-old #playerTableBody > tr > td[colspan],
+      html.old-cunt #playerTableBody > tr > td:first-child,
       html.even-older #playerTableBody > tr > td[colspan],
       html.old-cunt #playerTableBody > tr > td[colspan] {
         grid-column: 1 / -1;
@@ -2277,11 +2293,8 @@
             </div>
           </td>
           <td class="py-2 px-1.5 sm:px-3 text-slate-400 text-xs align-middle break-words">
-            <button onclick="openRoundHistoryModal(${idx})" class="text-left hover:text-amber-300 transition group inline-flex flex-wrap items-center gap-1 break-words" title="Click to view and edit rounds">
-              <span class="underline decoration-slate-600 group-hover:decoration-amber-300 underline-offset-2 font-mono break-words">
-                ${(p.rounds || []).map(r => escapeHtml(r)).join(' + ') || '0'}
-              </span>
-              <span class="text-[10px] text-slate-500 group-hover:text-amber-400 shrink-0">✎</span>
+            <button onclick="openRoundHistoryModal(${idx})" class="text-left hover:text-amber-300 transition group inline break-words" title="Click to view and edit rounds">
+              <span class="underline decoration-slate-600 group-hover:decoration-amber-300 underline-offset-2 font-mono break-words">${(p.rounds || []).map(r => escapeHtml(r)).join(' + ') || '0'}</span><span class="text-[10px] text-slate-500 group-hover:text-amber-400 ml-1 inline-block">✎</span>
             </button>
           </td>
           <td class="py-2 px-1 sm:px-2.5 text-center align-middle whitespace-nowrap">
